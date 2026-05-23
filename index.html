@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>CFE Tacuba - Sistema de Control</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#004d99">
+    <link rel="apple-touch-icon" href="icono-192.png">
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        :root { --primary: #004d99; --secondary: #0066cc; --bg: #f0f2f5; --card: #ffffff; --text: #1c1e21; }
+        body { font-family: -apple-system, sans-serif; margin: 0; background: var(--bg); color: var(--text); }
+        .topbar { background: var(--primary); color: white; padding: 12px 15px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .container { padding: 12px; max-width: 1200px; margin: auto; }
+        .card { background: var(--card); padding: 15px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 15px; }
+        
+        .tabs { display: flex; gap: 5px; background: #e0e0e0; padding: 5px; border-radius: 10px; margin-bottom: 15px; flex-wrap: wrap; }
+        .tab-btn { flex: 1; min-width: 70px; padding: 10px 5px; border: none; border-radius: 8px; font-weight: bold; font-size: 12px; cursor: pointer; color: #555; background: transparent; transition: 0.2s; text-align: center; }
+        .tab-active { background: white; color: var(--primary); box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        
+        .filtros-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; margin-bottom: 10px; }
+        .etiqueta { font-size: 10px; font-weight: bold; color: var(--primary); text-transform: uppercase; margin-bottom: 3px; display: block; }
+        select, input, textarea { padding: 10px; border-radius: 8px; border: 1px solid #ccc; width: 100%; font-size: 14px; box-sizing: border-box; outline: none; background: #fff; }
+        
+        .contadores { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; justify-content: center; background: #f8f9fa; padding: 10px; border-radius: 8px; border: 1px solid #eee; }
+        .badge { background: white; color: var(--primary); padding: 6px 12px; border-radius: 20px; font-size: 13px; font-weight: bold; border: 1px solid #cce4ff; }
+        
+        .table-wrapper { overflow-x: auto; border-radius: 8px; border: 1px solid #ddd; background: white; }
+        .tabla { width: 100%; border-collapse: collapse; font-size: 12px; text-align: center; }
+        .tabla th, .tabla td { border: 1px solid #eee; padding: 10px 4px; min-width: 40px; cursor: pointer; }
+        .tabla th { background: #f8f9fa; color: #65676b; font-weight: 600; }
+        .col-fija { position: sticky; left: 0; background: #f8f9fa; z-index: 5; font-weight: bold; min-width: 90px !important; text-align: left; padding-left: 10px !important; border-right: 2px solid #ddd !important; }
+        
+        .col-activa { background: #e3f2fd !important; border-left: 1px solid #64b5f6 !important; border-right: 1px solid #64b5f6 !important; }
+        .th-activo { background: var(--primary) !important; color: white !important; border-color: var(--primary) !important; }
+        .hoy-texto { color: #d32f2f; font-weight: 900; }
+        
+        .t-M { color: #0d47a1; font-weight: bold; }
+        .t-V { color: #e65100; font-weight: bold; }
+        .t-N { background: #212121; color: #ffffff; font-weight: bold; }
+        .t-D { background: #e8f5e9; color: #1b5e20; font-weight: bold; }
+
+        .btn-accion { background: var(--primary); color: white; border: none; padding: 8px 12px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 12px; }
+        .bg-green { background: #2e7d32; }
+        .bg-dark { background: #343a40; }
+        .stats-box { background: #f8f9fa; border: 1px solid #ddd; padding: 10px; border-radius: 8px; text-align: center; flex: 1; min-width: 80px; }
+        .stats-box span { font-size: 20px; font-weight: bold; color: var(--primary); display: block; margin-top: 5px; }
+
+        .tabla-auditoria th { font-size: 10px; background: #343a40; color: white; border-color: #555; padding: 8px 4px; user-select: none; }
+        .tabla-auditoria th:hover { background: #1c1e21; }
+        .th-sortable { cursor: pointer; }
+        .alerta-naranja { background: #fff3e0 !important; color: #e65100 !important; font-weight: bold; }
+        .alerta-roja { background: #ffebee !important; color: #c62828 !important; font-weight: bold; }
+        .alerta-verde { background: #e8f5e9 !important; color: #1b5e20 !important; font-weight: bold; }
+        
+        .nav-periodo { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 15px; }
+        .btn-nav { background: var(--primary); color: white; border: none; width: 35px; height: 35px; border-radius: 50%; font-size: 16px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+        .btn-nav:active { transform: scale(0.95); }
+
+        #bloqueoSeguridad { display: none; }
+        #vistaDetalle, #vistaAuditoria { display: none; }
+        
+        #ticketExportar { background: white; padding: 15px; border-radius: 8px; }
+        
+        .tabla-chunk { width: 100%; border-collapse: collapse; margin-bottom: 10px; font-size: 12px; text-align: center; }
+        .tabla-chunk th, .tabla-chunk td { border: 1px solid #ccc; padding: 8px 4px; width: 14.28%; }
+        .tabla-chunk th { background: #f0f2f5; color: #333; font-weight: bold; }
+
+        .resumen-vuln { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+        .tarjeta-vuln { flex: 1; background: #fff; border: 1px solid #ddd; padding: 12px; border-radius: 8px; text-align: center; min-width: 140px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .tarjeta-vuln h4 { margin: 0 0 5px 0; color: #333; font-size: 12px; text-transform: uppercase; border-bottom: 1px solid #eee; padding-bottom: 3px; }
+        .tarjeta-vuln .num { font-size: 22px; font-weight: bold; color: #c62828; margin: 2px 0; }
+        .tarjeta-vuln .detalles-v { font-size: 11px; color: #555; text-align: left; background: #f8f9fa; padding: 4px; border-radius: 4px; margin-top: 4px; }
+    </style>
+</head>
+<body>
+
+<div id="bloqueoSeguridad">
+    <header class="topbar">
+        <div style="font-weight:bold; font-size: 16px;">⚡ CFE Tacuba Operaciones</div>
+        <div style="display: flex; gap: 8px;">
+            <button class="btn-accion bg-dark" onclick="abrirAuditoria()">📊 Balance Admin</button>
+            <button class="btn-accion" onclick="cerrarSesionApp()" style="background:#c62828;">Salir</button>
+        </div>
+    </header>
+
+    <main class="container">
+        <section id="vistaInicio">
+            <div class="tabs">
+                <button id="btn7" class="tab-btn" onclick="setModo(7)">📅 Semana</button>
+                <button id="btn28" class="tab-btn tab-active" onclick="setModo(28)">📆 Ciclo 28 Días</button>
+            </div>
+
+            <div class="card">
+                <div class="filtros-grid">
+                    <div><span class="etiqueta">Zona</span><select id="filtroArea" onchange="actualizarFiltros()"></select></div>
+                    <div><span class="etiqueta">Cuadrilla</span><select id="filtroRol" onchange="render()"><option value="">TODAS</option></select></div>
+                    <div><span class="etiqueta">A Partir Del:</span><input type="date" id="inputFecha" onchange="cambiarFechaBase()"></div>
+                </div>
+                <button class="btn-accion" style="width: 100%; background: #e0e0e0; color: #333; margin-top: 5px;" onclick="irAHoy()">📍 Regresar a Hoy</button>
+            </div>
+
+            <div class="card" style="padding-top: 10px;">
+                <div style="text-align: center; font-size: 12px; color: #666; margin-bottom: 5px;">Personal laborando el: <b id="lblDiaSeleccionado" style="color:var(--primary);"></b></div>
+                <div id="resumenZonal" class="contadores"></div>
+                <div class="table-wrapper">
+                    <table class="tabla"><thead><tr id="cabeceraTabla"></tr></thead><tbody id="cuerpoTabla"></tbody></table>
+                </div>
+            </div>
+        </section>
+
+        <section id="vistaDetalle">
+            <div class="card">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                    <button onclick="volver()" style="background:none; border:none; color:var(--primary); font-weight:bold; font-size:16px; cursor:pointer; padding:0;">← Volver</button>
+                    <button onclick="compartirImagen()" style="background:#25D366; color:white; border:none; padding:8px 12px; border-radius:20px; font-weight:bold; cursor:pointer; display:flex; align-items:center; gap:5px; font-size:12px;">
+                        📸 WhatsApp
+                    </button>
+                </div>
+
+                <div class="tabs" style="background: #e8eaf6;">
+                    <button id="btnDet7" class="tab-btn" onclick="pintarDetalle(7)">Semana</button>
+                    <button id="btnDetMes" class="tab-btn" onclick="pintarDetalle('mes')">Mes</button>
+                    <button id="btnDet28" class="tab-btn tab-active" onclick="pintarDetalle(28)">Ciclo 28</button>
+                    <button id="btnDetCustom" class="tab-btn" onclick="pintarDetalle('custom')">Rango Libre</button>
+                </div>
+
+                <div id="panelLibre" style="display:none; gap:10px; margin-bottom:15px; background:#fff3e0; padding:10px; border-radius:8px;">
+                    <div style="flex:1"><span class="etiqueta">Desde:</span><input type="date" id="fechaDesde" onchange="pintarDetalle('custom')"></div>
+                    <div style="flex:1"><span class="etiqueta">Hasta:</span><input type="date" id="fechaHasta" onchange="pintarDetalle('custom')"></div>
+                </div>
+
+                <div class="nav-periodo" id="navPeriodo">
+                    <button class="btn-nav" onclick="moverPeriodo(-1)">◀</button>
+                    <div style="flex:1; text-align:center; font-size:11px; color:#666;">Mover Periodo</div>
+                    <button class="btn-nav" onclick="moverPeriodo(1)">▶</button>
+                </div>
+                
+                <div style="display:flex; gap:8px; margin-bottom:15px; flex-wrap: wrap;">
+                    <div class="stats-box"><small>Noches</small><span id="statNoches">0</span></div>
+                    <div class="stats-box"><small>Domingos</small><span id="statDomingos">0</span></div>
+                </div>
+
+                <div id="ticketExportar">
+                    <h2 id="detRol" style="margin:0; font-size:22px; color:#0d47a1; text-align:center;">ROL --</h2>
+                    <p id="detNombre" style="color:#666; margin:2px 0 10px 0; font-weight:bold; text-align:center;">--</p>
+                    <div style="text-align:center; margin-bottom: 10px;">
+                        <span id="lblPeriodoDetalle" style="color:#000; font-size:12px; font-weight:bold; background:#e3f2fd; padding:6px 12px; border-radius:6px; border:1px solid #90caf9;">Periodo: --</span>
+                    </div>
+                    <div id="contenedorTablasTicket" style="border: 2px solid #ccc; padding: 5px; border-radius: 6px; background: #fafafa;"></div>
+                </div>
+            </div>
+        </section>
+
+        <section id="vistaAuditoria">
+            <div class="card">
+                <button onclick="volver()" style="background:none; border:none; color:var(--primary); font-weight:bold; font-size:16px; margin-bottom:10px; cursor:pointer; padding:0;">← Volver al Operativo</button>
+                
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                    <h2 style="margin:0; color:#0d47a1;">📊 Bóveda Gerencial</h2>
+                    <select id="filtroAnoAuditoria" onchange="abrirAuditoria()" style="width:100px; padding:8px; font-weight:bold; color:var(--primary);">
+                        <option value="2026">2026</option>
+                        <option value="2027">2027</option>
+                    </select>
+                </div>
+
+                <div class="card" style="background: #eef2f7; border: 1px solid #bcccdc; margin-bottom: 20px; padding: 12px;">
+                    <span class="etiqueta" style="color: #004d99; font-size: 11px;">📥 Días Contractuales / Extras</span>
+                    <p style="margin:2px 0 8px 0; font-size:11px; color:#555;">Agrega las fechas negociadas por el sindicato para recalcular la brecha salarial (AAAA-MM-DD):</p>
+                    <div style="display:flex; gap:8px;">
+                        <input type="text" id="inputContractuales" placeholder="Ej: 2026-07-11, 2026-10-12" style="flex:1; padding:6px;">
+                        <button class="btn-accion bg-green" onclick="alimentarFechas()">⚡ Calcular</button>
+                    </div>
+                </div>
+
+                <h2 style="margin:10px 0 5px 0; color:#c62828;">🚨 Puntos Críticos de Cobertura Anual</h2>
+                <div class="resumen-vuln" id="panelVulnerabilidad"></div>
+
+                <hr style="border: 0; border-top: 1px solid #eee; margin: 25px 0;">
+
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <h2 style="margin:0; color:#0d47a1;">📊 Auditoría de Riesgo e Inequidad</h2>
+                    <button class="btn-accion bg-dark" onclick="exportarCSV()">📥 Exportar Excel</button>
+                </div>
+                <p style="font-size:11px; color:#666; margin-top:4px;"><i>Tip: Toca el título de cualquier columna para ordenar las cuadrillas.</i></p>
+                
+                <div class="table-wrapper" style="margin-top: 10px;">
+                    <table class="tabla tabla-auditoria">
+                        <thead>
+                            <tr>
+                                <th class="col-fija">CUADRILLA</th>
+                                <th class="th-sortable" onclick="ordenarAuditoria('domingos')">☀️ Dom ↕️</th>
+                                <th class="th-sortable" onclick="ordenarAuditoria('N')">🌙 Noc ↕️</th>
+                                <th class="th-sortable" onclick="ordenarAuditoria('riesgoNoche')" title="Entrar a Noche tras 4+ días seguidos laborando">⚠️ Noc. Riesgo ↕️</th>
+                                <th class="th-sortable" onclick="ordenarAuditoria('muro6Dias')" title="Trabajar 6 o más días consecutivos y descansar solo 1">🧱 Muro 6+1 ↕️</th>
+                                <th class="th-sortable" onclick="ordenarAuditoria('rachaFS')" title="Fines de semana consecutivos trabajados">⛓️ Racha FS ↕️</th>
+                                <th class="th-sortable" onclick="ordenarAuditoria('fsLibres')">✅ FS Lib ↕️</th>
+                                <th class="th-sortable" onclick="ordenarAuditoria('feriadosQuemados')" title="Festivos oficiales que caen en día de descanso (pérdida de pago doble)">🔥 Fest. Quemados ↕️</th>
+                                <th class="th-sortable" onclick="ordenarAuditoria('premiumTotales')" style="background:#0d47a1;" title="Domingos + Festivos de Ley + Extras Contractuales">💰 Días Premium ↕️</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cuerpoAuditoria"></tbody>
+                    </table>
+                </div>
+
+                <div id="recuadroBrecha" style="margin-top:15px; padding:12px; background:#fff8e1; border:1px solid #ffe082; border-radius:8px; font-size:12px;"></div>
+            </div>
+        </section>
+    </main>
+</div>
+
+<script>
+// ==========================================
+// MATRIZ Y CONFIGURACIÓN BASE
+// ==========================================
+const CLAVE_ACCESO_GENERAL = "cfe2026"; 
+const CLAVE_BALANCE_GERENCIAL = "cfeTacuba"; 
+
+const MATRIZ = [
+    ['D', 'M', 'M', 'M', 'M', 'M', 'M', 'D', 'V', 'V', 'V', 'V', 'D', 'D', 'M', 'M', 'M', 'M', 'M', 'M', 'D', 'N', 'N', 'N', 'N', 'N', 'D', 'D'],
+    ['V', 'V', 'V', 'V', 'V', 'D', 'D', 'V', 'V', 'V', 'V', 'V', 'D', 'D', 'V', 'V', 'V', 'V', 'V', 'D', 'V', 'V', 'V', 'V', 'V', 'V', 'D', 'D'],
+    ['N', 'N', 'N', 'N', 'N', 'D', 'D', 'M', 'M', 'M', 'M', 'D', 'V', 'V', 'V', 'V', 'V', 'V', 'D', 'D', 'M', 'M', 'M', 'M', 'D', 'D', 'V', 'V'],
+    ['V', 'V', 'V', 'D', 'D', 'V', 'V', 'V', 'V', 'V', 'D', 'D', 'M', 'M', 'V', 'V', 'V', 'D', 'D', 'V', 'V', 'V', 'V', 'V', 'V', 'D', 'M', 'M'],
+    ['M', 'D', 'D', 'M', 'M', 'M', 'M', 'D', 'M', 'M', 'M', 'M', 'D', 'D', 'M', 'M', 'M', 'M', 'V', 'V', 'D', 'M', 'M', 'M', 'M', 'V', 'V', 'D'],
+    ['V', 'V', 'V', 'V', 'D', 'N', 'N', 'N', 'N', 'N', 'D', 'V', 'V', 'V', 'D', 'D', 'V', 'V', 'V', 'D', 'D', 'V', 'V', 'V', 'V', 'D', 'M', 'M'],
+    ['M', 'D', 'D', 'M', 'M', 'M', 'M', 'M', 'D', 'D', 'V', 'V', 'V', 'V', 'V', 'V', 'D', 'M', 'M', 'M', 'M', 'M', 'D', 'D', 'V', 'V', 'V', 'V'],
+    ['D', 'V', 'V', 'V', 'D', 'V', 'V', 'V', 'V', 'D', 'D', 'M', 'M', 'M', 'M', 'M', 'D', 'V', 'V', 'V', 'V', 'D', 'D', 'M', 'M', 'M', 'M', 'M'],
+    ['M', 'D', 'V', 'V', 'V', 'V', 'V', 'V', 'D', 'D', 'N', 'N', 'N', 'N', 'N', 'D', 'M', 'M', 'M', 'M', 'M', 'D', 'M', 'M', 'V', 'V', 'D', 'D'],
+    ['V', 'V', 'V', 'V', 'D', 'V', 'V', 'V', 'V', 'V', 'D', 'D', 'M', 'M', 'V', 'V', 'D', 'D', 'V', 'V', 'V', 'V', 'V', 'D', 'D', 'M', 'M', 'M'],
+    ['M', 'D', 'M', 'M', 'M', 'M', 'M', 'D', 'D', 'V', 'V', 'V', 'V', 'V', 'V', 'D', 'D', 'V', 'V', 'V', 'V', 'V', 'V', 'D', 'D', 'V', 'V', 'V'],
+    ['V', 'V', 'D', 'D', 'V', 'V', 'V', 'V', 'D', 'D', 'V', 'V', 'V', 'V', 'D', 'N', 'N', 'N', 'N', 'N', 'N', 'D', 'D', 'V', 'V', 'V', 'V', 'V'],
+    ['V', 'D', 'V', 'V', 'V', 'D', 'D', 'M', 'M', 'M', 'M', 'M', 'D', 'D', 'V', 'V', 'V', 'V', 'V', 'D', 'D', 'V', 'V', 'V', 'V', 'V', 'V', 'V'],
+    ['D', 'V', 'V', 'V', 'V', 'D', 'D', 'V', 'V', 'V', 'V', 'V', 'D', 'M', 'M', 'V', 'V', 'V', 'V', 'D', 'D', 'V', 'V', 'V', 'V', 'D', 'N', 'N'],
+    ['D', 'V', 'V', 'V', 'V', 'V', 'V', 'D', 'D', 'M', 'M', 'M', 'M', 'M', 'D', 'D', 'M', 'M', 'M', 'M', 'M', 'M', 'D', 'D', 'M', 'M', 'M', 'M']
+];
+
+const CONFIG = {
+    fechaBase: new Date(2025, 11, 29),
+    roles: [
+        {id:82, a:"TLATELOLCO", nom:"LUIS VIVEROS", idx: 0}, {id:83, a:"TLATELOLCO", nom:"RAUL CARRILLO", idx: 1},
+        {id:66, a:"AZCAPOTZALCO", nom:"GUILLERMO CHECA", idx: 2}, {id:64, a:"AZCAPOTZALCO", nom:"RAUL RUIZ", idx: 3},
+        {id:65, a:"AZCAPOTZALCO", nom:"RODOLFO RODRIGUEZ", idx: 4}, {id:74, a:"INSURGENTES", nom:"JHONATHAN ROMERO", idx: 5},
+        {id:75, a:"INSURGENTES", nom:"C. LOPEZ VILLA", idx: 6}, {id:84, a:"TLATELOLCO", nom:"LUIS ARTURO PARRA", idx: 7},
+        {id:55, a:"ARAGON", nom:"EDGAR LOPEZ RIVERA", idx: 8}, {id:52, a:"ARAGON", nom:"JOSE ANTONIO ROBLEDO", idx: 9},
+        {id:53, a:"ARAGON", nom:"RAYMUNDO ORDOÑEZ", idx: 10}, {id:62, a:"AZCAPOTZALCO", nom:"LUCIO GARCIA", idx: 11},
+        {id:63, a:"AZCAPOTZALCO", nom:"SAJID MARTINEZ", idx: 12}, {id:72, a:"INSURGENTES", nom:"VICTOR CAMPOS", idx: 13},
+        {id:73, a:"INSURGENTES", nom:"NARCISO CABALLERO", idx: 14}
+    ]
+};
+
+const dSem = ["Do", "Lu", "Ma", "Mi", "Ju", "Vi", "Sá"];
+const nMeses = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+
+// Diccionario de Feriados de Ley por año
+const FERIADOS_LEY = {
+    2026: ["2026-01-01", "2026-02-02", "2026-03-16", "2026-05-01", "2026-09-16", "2026-11-16", "2026-12-25"],
+    2027: ["2027-01-01", "2027-02-01", "2027-03-15", "2027-05-01", "2027-09-16", "2027-11-15", "2027-12-25"]
+};
+
+let diasAMostrar = 28;
+let fechaInicioVista = new Date();
+let fechaClick = new Date();
+let rolDetalleActual = null;
+let modoDetalleActual = 28;
+let fechaDetalle = new Date();
+
+// Variables Bóveda
+let datosAuditoria = [];
+let ordenAuditoria = { columna: 'premiumTotales', asc: false };
+let fechasContractuales = [];
+
+// ==========================================
+// CONTROL DE ACCESO
+// ==========================================
+function validarAccesoInicial() {
+    if (localStorage.getItem("tokenAccesoCfe") === CLAVE_ACCESO_GENERAL) {
+        document.getElementById("bloqueoSeguridad").style.display = "block";
+        inicializarEstructuraBase();
+    } else {
+        let login = prompt("Ingrese PIN:");
+        if (login === CLAVE_ACCESO_GENERAL) {
+            localStorage.setItem("tokenAccesoCfe", CLAVE_ACCESO_GENERAL);
+            document.getElementById("bloqueoSeguridad").style.display = "block";
+            inicializarEstructuraBase();
+        } else {
+            alert("Acceso Denegado");
+        }
+    }
+}
+function cerrarSesionApp() { localStorage.removeItem("tokenAccesoCfe"); window.location.reload(); }
+
+function inicializarEstructuraBase() {
+    const selA = document.getElementById("filtroArea"); selA.innerHTML = '<option value="">ZONAS (Todas)</option>';
+    [...new Set(CONFIG.roles.map(r => r.a))].forEach(a => selA.innerHTML += `<option value="${a}">${a}</option>`);
+    actualizarFiltros(); irAHoy();
+}
+
+// ==========================================
+// PANTALLA PRINCIPAL
+// ==========================================
+function getTurnoReal(id, fecha) {
+    const r = CONFIG.roles.find(x => x.id === id);
+    const diff = Math.floor((fecha.setHours(0,0,0,0) - CONFIG.fechaBase.setHours(0,0,0,0)) / 86400000);
+    if(diff < 0) return "-";
+    return MATRIZ[(r.idx + Math.floor(diff / 28)) % 15][diff % 28];
+}
+
+function setModo(dias) { diasAMostrar = dias; document.getElementById('btn7').className = `tab-btn ${dias === 7 ? 'tab-active' : ''}`; document.getElementById('btn28').className = `tab-btn ${dias === 28 ? 'tab-active' : ''}`; render(); }
+function cambiarFechaBase() { fechaInicioVista = new Date(document.getElementById("inputFecha").value + "T00:00:00"); fechaClick = new Date(fechaInicioVista); render(); }
+function irAHoy() {
+    const hoy = new Date();
+    const yyyy = hoy.getFullYear();
+    const mm = String(hoy.getMonth() + 1).padStart(2, '0'); // Meses van de 0-11
+    const dd = String(hoy.getDate()).padStart(2, '0');
+    
+    document.getElementById("inputFecha").value = `${yyyy}-${mm}-${dd}`;
+    cambiarFechaBase();
+}
+function seleccionarColumna(fechaISO) { fechaClick = new Date(fechaISO + "T00:00:00"); render(); }
+function actualizarFiltros() { const zona = document.getElementById("filtroArea").value; const selR = document.getElementById("filtroRol"); selR.innerHTML = '<option value="">TODAS</option>'; CONFIG.roles.filter(r => !zona || r.a === zona).forEach(r => selR.innerHTML += `<option value="${r.id}">ROL ${r.id}</option>`); render(); }
+
+function render() {
+    const area = document.getElementById("filtroArea").value;
+    const rolFiltro = document.getElementById("filtroRol").value;
+    let fechas = [];
+    for(let i=0; i<diasAMostrar; i++) { let f = new Date(fechaInicioVista); f.setDate(fechaInicioVista.getDate() + i); fechas.push(f); }
+    document.getElementById("lblDiaSeleccionado").innerText = `${dSem[fechaClick.getDay()]} ${fechaClick.getDate()} de ${nMeses[fechaClick.getMonth()]}`;
+
+    let h = '<th class="col-fija">CUADRILLA</th>';
+    fechas.forEach(f => {
+        let act = f.toDateString() === fechaClick.toDateString() ? 'th-activo' : '';
+        let iso = f.getFullYear() + "-" + String(f.getMonth()+1).padStart(2, '0') + "-" + String(f.getDate()).padStart(2, '0');
+        h += `<th class="${act}" onclick="seleccionarColumna('${iso}')"><span class="${f.toDateString() === new Date().toDateString() ? 'hoy-texto' : ''}">${dSem[f.getDay()]}<br>${f.getDate()}</span></th>`;
+    });
+    document.getElementById("cabeceraTabla").innerHTML = h;
+
+    let b = "", cto = {M:0, V:0, N:0, D:0};
+    CONFIG.roles.filter(r => (!area || r.a === area) && (!rolFiltro || r.id == rolFiltro)).forEach(r => {
+        let fila = `<tr><td class="col-fija" onclick="abrirDetalle(${r.id})" style="color:var(--primary); text-decoration:underline; cursor:pointer;"><b>${r.id}</b></td>`;
+        fechas.forEach(f => {
+            let t = getTurnoReal(r.id, f);
+            let act = f.toDateString() === fechaClick.toDateString() ? 'col-activa' : '';
+            if(f.toDateString() === fechaClick.toDateString()) cto[t]++;
+            let iso = f.getFullYear() + "-" + String(f.getMonth()+1).padStart(2, '0') + "-" + String(f.getDate()).padStart(2, '0');
+            fila += `<td class="t-${t} ${act}" onclick="seleccionarColumna('${iso}')">${t}</td>`;
+        });
+        b += fila + "</tr>";
+    });
+    document.getElementById("cuerpoTabla").innerHTML = b;
+    document.getElementById("resumenZonal").innerHTML = `<div class="badge">☀️ M: ${cto.M}</div> <div class="badge">🌇 V: ${cto.V}</div> <div class="badge">🌙 N: ${cto.N}</div> <div class="badge">🏠 D: ${cto.D}</div>`;
+}
+
+// ==========================================
+// VISTA DETALLE Y NAVEGACIÓN TOTALMENTE REPARADA
+// ==========================================
+function formatoFecha(d) { return d.getDate() + " " + nMeses[d.getMonth()]; }
+
+function abrirDetalle(id) {
+    rolDetalleActual = id; const r = CONFIG.roles.find(x => x.id === id);
+    document.getElementById("vistaInicio").style.display = "none"; document.getElementById("vistaAuditoria").style.display = "none"; document.getElementById("vistaDetalle").style.display = "block";
+    document.getElementById("detRol").innerText = "ROL " + id; document.getElementById("detNombre").innerText = r.nom + " (" + r.a + ")";
+    
+    fechaDetalle = new Date(document.getElementById("inputFecha").value + "T00:00:00");
+    document.getElementById("fechaDesde").value = document.getElementById("inputFecha").value;
+    
+    let fFin = new Date(fechaDetalle); fFin.setDate(fFin.getDate() + 10);
+    document.getElementById("fechaHasta").value = fFin.toISOString().split('T')[0];
+    
+    pintarDetalle(28); 
+}
+
+function moverPeriodo(dir) {
+    if (modoDetalleActual === 7) fechaDetalle.setDate(fechaDetalle.getDate() + (dir * 7));
+    else if (modoDetalleActual === 'mes') fechaDetalle.setMonth(fechaDetalle.getMonth() + dir);
+    else if (modoDetalleActual === 28) fechaDetalle.setDate(fechaDetalle.getDate() + (dir * 28));
+    pintarDetalle(modoDetalleActual);
+}
+
+function pintarDetalle(modo) {
+    modoDetalleActual = modo;
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('tab-active'));
+    
+    if(modo === 7) document.getElementById('btnDet7').classList.add('tab-active');
+    else if(modo === 'mes') document.getElementById('btnDetMes').classList.add('tab-active');
+    else if(modo === 28) document.getElementById('btnDet28').classList.add('tab-active');
+    else if(modo === 'custom') document.getElementById('btnDetCustom').classList.add('tab-active');
+
+    let fechas = []; 
+    let ref = new Date(fechaDetalle);
+    
+    if(modo === 'custom') {
+        document.getElementById("panelLibre").style.display = "flex"; 
+        document.getElementById("navPeriodo").style.display = "none";
+        
+        let valDesde = document.getElementById("fechaDesde").value;
+        let valHasta = document.getElementById("fechaHasta").value;
+        
+        let fd = valDesde ? new Date(valDesde + "T00:00:00") : new Date();
+        let fh = valHasta ? new Date(valHasta + "T00:00:00") : new Date();
+        
+        let dif = Math.floor((fh - fd) / 86400000); 
+        if(dif < 0) dif = 0; 
+        if(dif > 120) dif = 120; // Limite de seguridad
+        
+        for(let i=0; i<=dif; i++) { 
+            let f = new Date(fd); f.setDate(fd.getDate()+i); fechas.push(f); 
+        }
+        document.getElementById("lblPeriodoDetalle").innerText = `Turnos del ${formatoFecha(fechas[0])} al ${formatoFecha(fechas[fechas.length-1])}`;
+    } else {
+        document.getElementById("panelLibre").style.display = "none"; 
+        document.getElementById("navPeriodo").style.display = "flex";
+        
+        if (modo === 7) {
+            for(let i=0; i<7; i++) { let f = new Date(ref); f.setDate(ref.getDate()+i); fechas.push(f); }
+            document.getElementById("lblPeriodoDetalle").innerText = `${fechas[0].getDate()} ${nMeses[fechas[0].getMonth()]} - ${formatoFecha(fechas[6])} ${fechas[0].getFullYear()}`;
+        } else if (modo === 'mes') {
+            const ult = new Date(ref.getFullYear(), ref.getMonth() + 1, 0).getDate(); 
+            for(let i=1; i<=ult; i++) fechas.push(new Date(ref.getFullYear(), ref.getMonth(), i));
+            document.getElementById("lblPeriodoDetalle").innerText = `Mes de ${nMeses[ref.getMonth()]} ${ref.getFullYear()}`;
+        } else {
+            for(let i=0; i<28; i++) { let f = new Date(ref); f.setDate(ref.getDate()+i); fechas.push(f); }
+            document.getElementById("lblPeriodoDetalle").innerText = `Ciclo: ${fechas[0].getDate()} ${nMeses[fechas[0].getMonth()]} - ${formatoFecha(fechas[27])}`;
+        }
+    }
+
+    let cN=0, cDom=0; let htmlChunks = "";
+    for(let i=0; i < fechas.length; i += 7) {
+        let chunk = fechas.slice(i, i+7); let h = '<tr>', b = '<tr>';
+        chunk.forEach(f => {
+            let t = getTurnoReal(rolDetalleActual, f); if(t === 'N') cN++; if(t !== 'D' && f.getDay() === 0) cDom++;
+            h += `<th ${f.getDay()===0?'style="color:#d32f2f;"':''}>${dSem[f.getDay()]}<br>${f.getDate()}</th>`; b += `<td class="t-${t}">${t}</td>`;
+        });
+        while(chunk.length < 7) { h += `<th>-</th>`; b += `<td>-</td>`; chunk.push('fill'); }
+        htmlChunks += `<table class="tabla-chunk"><thead>${h}</tr></thead><tbody>${b}</tr></tbody></table>`;
+    }
+    document.getElementById("contenedorTablasTicket").innerHTML = htmlChunks;
+    document.getElementById("statNoches").innerText = cN; document.getElementById("statDomingos").innerText = cDom;
+}
+
+function volver() { document.getElementById("vistaDetalle").style.display = "none"; document.getElementById("vistaAuditoria").style.display = "none"; document.getElementById("vistaInicio").style.display = "block"; }
+
+async function compartirImagen() {
+    const elemento = document.getElementById("ticketExportar");
+    try {
+        const canvas = await html2canvas(elemento, { backgroundColor: "#ffffff", scale: 2 });
+        canvas.toBlob(async (blob) => {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a"); a.href = url; a.download = "Turnos_CFE.png"; a.click();
+        });
+    } catch (e) { alert("Error al generar imagen."); }
+}
+
+// ==========================================
+// MÓDULO NUEVO: BÓVEDA GERENCIAL Y AUDITORÍA
+// ==========================================
+function abrirAuditoria() {
+    const pin = prompt("Ingrese PIN de Administrador:");
+    if(pin !== CLAVE_BALANCE_GERENCIAL) { alert("PIN Incorrecto"); return; }
+    document.getElementById("vistaInicio").style.display = "none"; document.getElementById("vistaDetalle").style.display = "none"; document.getElementById("vistaAuditoria").style.display = "block";
+    
+    calcularDatosAuditoria();
+    datosAuditoria.sort((a, b) => b.premiumTotales - a.premiumTotales); 
+    renderAuditoria();
+    calcularVulnerabilidadAnual();
+}
+
+function alimentarFechas() {
+    let txt = document.getElementById("inputContractuales").value;
+    fechasContractuales = txt.split(',').map(f => f.trim()).filter(f => /\d{4}-\d{2}-\d{2}/.test(f));
+    alert(`¡Sistema Alimentado! Se agregaron ${fechasContractuales.length} días extra para el cálculo de ingresos.`);
+    calcularDatosAuditoria();
+    ordenarAuditoria(ordenAuditoria.columna);
+}
+
+function calcularDatosAuditoria() {
+    datosAuditoria = [];
+    // Leer el año seleccionado en el combo
+    const anioAudit = parseInt(document.getElementById("filtroAnoAuditoria").value);
+    const feriadosDelAnio = FERIADOS_LEY[anioAudit] || [];
+
+    CONFIG.roles.forEach(r => {
+        let s = { id: r.id, a: r.a, N:0, domingos:0, fsLibres:0, fsNegros:0, premiumTotales:0, riesgoNoche:0, rachaFS:0, muro6Dias:0, feriadosQuemados:0 };
+        let rachaDiasTrabajados = 0;
+        let strFinesSemana = ""; // L=Libre, O=Operativo, P=Parcial
+        let stringTurnos = "";
+
+        for(let d = new Date(anioAudit, 0, 1); d.getFullYear() === anioAudit; d.setDate(d.getDate()+1)) {
+            let t = getTurnoReal(r.id, d); 
+            stringTurnos += (t === 'D') ? 'D' : 'T'; // Simplificar a T=Trabaja, D=Descansa
+            let iso = d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2, '0') + "-" + String(d.getDate()).padStart(2, '0');
+            let esFeriado = feriadosDelAnio.includes(iso) || fechasContractuales.includes(iso);
+            
+            if(t === 'N') s.N++;
+            if(t !== 'D' && d.getDay() === 0) s.domingos++;
+
+            // Días Premium (Trabaja en Domingo o en Festivo)
+            if(t !== 'D' && (d.getDay() === 0 || esFeriado)) {
+                s.premiumTotales++;
+            }
+
+            // Feriados Quemados (Festivo cae en día de descanso 'D')
+            if(t === 'D' && esFeriado) {
+                s.feriadosQuemados++;
+            }
+
+            // Métrica: Noche de Alto Riesgo (Entrar a Noche tras 4+ días seguidos laborando)
+            if (t !== 'D') {
+                if (t === 'N' && rachaDiasTrabajados >= 4) s.riesgoNoche++;
+                rachaDiasTrabajados++;
+            } else {
+                rachaDiasTrabajados = 0;
+            }
+
+            // Métrica: Fines de semana
+            if(d.getDay() === 6) {
+                let dDom = new Date(d); dDom.setDate(dDom.getDate()+1);
+                if(dDom.getFullYear() === anioAudit) {
+                    let tDom = getTurnoReal(r.id, dDom);
+                    if(t === 'D' && tDom === 'D') { s.fsLibres++; strFinesSemana += 'L'; }
+                    else if(t !== 'D' && tDom !== 'D') { s.fsNegros++; strFinesSemana += 'O'; }
+                    else { strFinesSemana += 'P'; }
+                }
+            }
+        }
+
+        // Métrica: Muro de 6 Días (6 o más 'T' seguidas de una sola 'D' y luego otra 'T')
+        let muros = stringTurnos.match(/T{6,}D(?=T)/g) || [];
+        s.muro6Dias = muros.length;
+
+        // Métrica: Racha FS Secuestrados
+        let rachasO = strFinesSemana.match(/O+/g) || [];
+        s.rachaFS = rachasO.length > 0 ? Math.max(...rachasO.map(str => str.length)) : 0;
+
+        datosAuditoria.push(s);
+    });
+}
+
+function ordenarAuditoria(columna) {
+    if (ordenAuditoria.columna === columna) { ordenAuditoria.asc = !ordenAuditoria.asc; } 
+    else { ordenAuditoria.columna = columna; ordenAuditoria.asc = false; }
+
+    datosAuditoria.sort((a, b) => {
+        let valA = a[columna]; let valB = b[columna];
+        if (columna === 'fsLibres') return ordenAuditoria.asc ? (valB - valA) : (valA - valB); // Menos libres es peor
+        return ordenAuditoria.asc ? (valA - valB) : (valB - valA);
+    });
+    renderAuditoria();
+}
+
+function renderAuditoria() {
+    let html = "";
+    datosAuditoria.forEach(s => {
+        html += `<tr>
+            <td class="col-fija"><b>${s.id}</b> <small>${s.a.substring(0,3)}</small></td>
+            <td class="${s.domingos >= 20 ? 'alerta-roja' : ''}"><b>${s.domingos}</b></td>
+            <td>${s.N}</td>
+            <td class="${s.riesgoNoche >= 3 ? 'alerta-roja' : ''}"><b>${s.riesgoNoche}</b></td>
+            <td class="${s.muro6Dias >= 3 ? 'alerta-roja' : 'alerta-naranja'}"><b>${s.muro6Dias}</b></td>
+            <td class="${s.rachaFS >= 3 ? 'alerta-roja' : ''}"><b>${s.rachaFS} FS</b></td>
+            <td class="${s.fsLibres < 5 ? 'alerta-roja' : 'alerta-verde'}"><b>${s.fsLibres}</b></td>
+            <td class="${s.feriadosQuemados >= 2 ? 'alerta-naranja' : ''}"><b>${s.feriadosQuemados}</b></td>
+            <td style="background:#e3f2fd; color:#0d47a1; font-weight:bold;">${s.premiumTotales}D</td>
+        </tr>`;
+    });
+    document.getElementById("cuerpoAuditoria").innerHTML = html;
+
+    let mas = datosAuditoria.reduce((prev, current) => (prev.premiumTotales > current.premiumTotales) ? prev : current);
+    let menos = datosAuditoria.reduce((prev, current) => (prev.premiumTotales < current.premiumTotales) ? prev : current);
+    
+    document.getElementById("recuadroBrecha").innerHTML = `
+        <strong>🔍 Diagnóstico de Brecha Salarial / Contractual:</strong><br>
+        Mayor oportunidad de ingresos extra: <strong>ROL ${mas.id}</strong> (${mas.premiumTotales} días premium).<br>
+        Menor oportunidad de ingresos extra: <strong>ROL ${menos.id}</strong> (${menos.premiumTotales} días premium).<br>
+        <span style="color:#c62828; font-weight:bold;">⚠️ Inequidad: Existe una brecha de ${mas.premiumTotales - menos.premiumTotales} pagos extra anuales de diferencia entre compañeros.</span>
+    `;
+}
+
+function calcularVulnerabilidadAnual() {
+    let mZonas = { 'TLATELOLCO': {M:0, V:0}, 'AZCAPOTZALCO': {M:0, V:0}, 'INSURGENTES': {M:0, V:0}, 'ARAGON': {M:0, V:0} };
+    let nocGlobal = 0;
+    const anioAudit = parseInt(document.getElementById("filtroAnoAuditoria").value);
+
+    for(let d = new Date(anioAudit, 0, 1); d.getFullYear() === anioAudit; d.setDate(d.getDate()+1)) {
+        let guardNoc = false;
+        CONFIG.roles.forEach(r => { if(getTurnoReal(r.id, d) === 'N') guardNoc = true; });
+        if(!guardNoc) nocGlobal++;
+
+        Object.keys(mZonas).forEach(z => {
+            let cM = 0, cV = 0;
+            CONFIG.roles.filter(r => r.a === z).forEach(r => {
+                let t = getTurnoReal(r.id, d);
+                if(t === 'M') cM++; 
+                if(t === 'V') cV++;
+            });
+            if(cM === 0) mZonas[z].M++;
+            if(cV === 0) mZonas[z].V++;
+        });
+    }
+
+    let cards = "";
+    Object.keys(mZonas).forEach(z => {
+        let tot = mZonas[z].M + mZonas[z].V;
+        cards += `<div class="tarjeta-vuln">
+            <h4>${z.substring(0,4)}</h4>
+            <div class="num" style="${tot === 0 ? 'color:#2e7d32;' : ''}">${tot}</div>
+            <div class="detalles-v">🌅 Mañana: <b>${mZonas[z].M}</b><br>🌇 Tarde: <b>${mZonas[z].V}</b></div>
+        </div>`;
+    });
+
+    cards += `<div class="tarjeta-vuln" style="background:#212121; color:white;">
+        <h4 style="color:#aaa;">NOC GLOBAL</h4>
+        <div class="num" style="${nocGlobal === 0 ? 'color:#4caf50;' : 'color:#ff5252;'}">${nocGlobal}</div>
+        <div class="detalles-v" style="color:#ccc; background:#333;">Guardias descubiertas (0 elementos).</div>
+    </div>`;
+
+    document.getElementById("panelVulnerabilidad").innerHTML = cards;
+}
+
+function exportarCSV() {
+    let csv = "ROL,Nombre,Zona,"; const anioAudit = parseInt(document.getElementById("filtroAnoAuditoria").value);
+    let fIter = new Date(anioAudit, 0, 1); while(fIter.getFullYear() === anioAudit) { csv += `${fIter.getDate()}/${fIter.getMonth()+1},`; fIter.setDate(fIter.getDate()+1); }
+    csv += "\n";
+    CONFIG.roles.forEach(r => {
+        csv += `${r.id},${r.nom},${r.a},`;
+        let dIter = new Date(anioAudit, 0, 1); while(dIter.getFullYear() === anioAudit) { csv += `${getTurnoReal(r.id, dIter)},`; dIter.setDate(dIter.getDate()+1); }
+        csv += "\n";
+    });
+    const blob = new Blob(["\ufeff" + csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `Balance_CFE_${anioAudit}.csv`; link.click();
+}
+
+document.addEventListener("DOMContentLoaded", () => { validarAccesoInicial(); });
+</script>
+</body>
+</html>
