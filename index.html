@@ -76,7 +76,16 @@
     </style>
 </head>
 <body>
-
+<!-- CARTEL GIGANTE DE INSTALACIÓN -->
+<div id="modalInstalacion" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,43,94,0.9); z-index:9999; justify-content:center; align-items:center;">
+    <div class="card" style="max-width:320px; text-align:center; padding:25px; margin:20px; box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
+        <div style="font-size:50px; margin-bottom:10px;">📲</div>
+        <h2 style="margin-top:0; color:var(--primary); font-size:22px;">¡Instala tu App!</h2>
+        <p style="font-size:14px; color:#555; margin-bottom:20px;">Para un acceso más rápido y usarla sin internet, agrega CFE Tacuba a tu celular.</p>
+        <button class="btn-accion bg-green" style="width:100%; padding:15px; font-size:16px; margin-bottom:12px; box-shadow: 0 4px 6px rgba(46,125,50,0.3);" onclick="instalarAppDesdeModal()">📥 INSTALAR AHORA</button>
+        <button class="btn-accion bg-dark" style="width:100%; padding:10px; background:#e0e0e0; color:#555;" onclick="cerrarModalInstalacion()">Quizás Después</button>
+    </div>
+</div>
 <div id="bloqueoSeguridad">
     <header class="topbar">
         <div style="font-weight:bold; font-size: 16px;">⚡ CFE Tacuba Operaciones</div>
@@ -304,6 +313,11 @@ function inicializarEstructuraBase() {
     const selA = document.getElementById("filtroArea"); selA.innerHTML = '<option value="">ZONAS (Todas)</option>';
     [...new Set(CONFIG.roles.map(r => r.a))].forEach(a => selA.innerHTML += `<option value="${a}">${a}</option>`);
     actualizarFiltros(); irAHoy();
+
+    // NUEVO: Mostrar el cartel gigante de instalación si está disponible
+    if (pwaListaParaInstalar && !window.matchMedia('(display-mode: standalone)').matches) {
+        document.getElementById('modalInstalacion').style.display = 'flex';
+    }
 }
 
 // ==========================================
@@ -667,28 +681,37 @@ document.addEventListener("DOMContentLoaded", () => { validarAccesoInicial(); })
     // ==========================================
 // CAPTURADOR DE INSTALACIÓN (PWA)
 // ==========================================
+// ==========================================
+// CAPTURADOR DE INSTALACIÓN (CARTEL GIGANTE)
+// ==========================================
 let eventoInstalacion;
+let pwaListaParaInstalar = false;
 
 window.addEventListener('beforeinstallprompt', (e) => {
-    // Evita que el navegador lance su propio mini-aviso
     e.preventDefault();
-    // Guarda el evento para usarlo luego
     eventoInstalacion = e;
-    // Enciende nuestro botón verde de instalación
-    document.getElementById('btnInstalar').style.display = 'block';
+    pwaListaParaInstalar = true;
+    
+    // Si el usuario ya había metido el PIN y apenas cargó la app, le lanzamos el cartel
+    if (document.getElementById("bloqueoSeguridad").style.display === "block" && !window.matchMedia('(display-mode: standalone)').matches) {
+        document.getElementById('modalInstalacion').style.display = 'flex';
+    }
 });
 
-function instalarApp() {
+function cerrarModalInstalacion() {
+    document.getElementById('modalInstalacion').style.display = 'none';
+}
+
+function instalarAppDesdeModal() {
     if (eventoInstalacion) {
-        // Lanza la ventana emergente nativa del sistema
         eventoInstalacion.prompt();
-        // Espera a ver qué decide el usuario
         eventoInstalacion.userChoice.then((resultado) => {
             if (resultado.outcome === 'accepted') {
-                console.log('El usuario aceptó instalar la App');
-                document.getElementById('btnInstalar').style.display = 'none'; // Escondemos el botón
+                console.log('App Instalada');
             }
+            cerrarModalInstalacion();
             eventoInstalacion = null;
+            pwaListaParaInstalar = false;
         });
     }
 }
