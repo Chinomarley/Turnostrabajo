@@ -349,9 +349,6 @@ function render() {
         h += `<th class="${act}" style="${estiloFeriado}" onclick="seleccionarColumna('${iso}')"><span class="${f.toDateString() === new Date().toDateString() ? 'hoy-texto' : ''}">${dSem[f.getDay()]}${indicadorFeriado}<br>${f.getDate()}</span></th>`;
     });
     document.getElementById("cabeceraTabla").innerHTML = h;
-
-    let b = "", cto = {M:0, V:0, N:0, D:0};
-    CONFIG.roles.filter(r => (!area || r.a === area) && (!rolFiltro || r.id == rolFiltro)).forEach(r => {
         
         // Mantenemos tu columna fija con Titular y Ayudante integrados
         let colorAyudante = (r.ayu === "SIN ASIGNAR") ? "color:#c62828; font-style:italic;" : "color:#0288d1;";
