@@ -343,9 +343,19 @@ function render() {
     });
     document.getElementById("cabeceraTabla").innerHTML = h;
 
-    let b = "", cto = {M:0, V:0, N:0, D:0};
+   let b = "", cto = {M:0, V:0, N:0, D:0};
     CONFIG.roles.filter(r => (!area || r.a === area) && (!rolFiltro || r.id == rolFiltro)).forEach(r => {
-        let fila = `<tr><td class="col-fija" onclick="abrirDetalle(${r.id})" style="color:var(--primary); text-decoration:underline; cursor:pointer;"><b>${r.id}</b></td>`;
+        
+        // --- NUEVO: DISEÑO DE LA COLUMNA FIJA CON AYUDANTE ---
+        let colorAyudante = (r.ayu === "SIN ASIGNAR") ? "color:#c62828; font-style:italic;" : "color:#0288d1;";
+        let fila = `<tr>
+            <td class="col-fija" onclick="abrirDetalle(${r.id})" style="cursor:pointer; line-height:1.2; padding-top:6px !important; padding-bottom:6px !important;">
+                <b style="font-size:12px; color:var(--primary); text-decoration:underline;">ROL ${r.id}</b><br>
+                <span style="font-size:10px; color:#333; font-weight:bold;">👷 ${r.nom.split(' ')[0]}</span><br>
+                <span style="font-size:9.5px; ${colorAyudante}">🔧 ${r.ayu.split(' ')[0]}</span>
+            </td>`;
+        // -----------------------------------------------------
+
         fechas.forEach(f => {
             let t = getTurnoReal(r.id, f);
             let act = f.toDateString() === fechaClick.toDateString() ? 'col-activa' : '';
