@@ -81,11 +81,13 @@
     <header class="topbar">
         <div style="font-weight:bold; font-size: 16px;">⚡ CFE Tacuba Operaciones</div>
         <div style="display: flex; gap: 8px;">
+            <!-- NUEVO BOTÓN OCULTO POR DEFECTO -->
+            <button id="btnInstalar" class="btn-accion bg-green" style="display:none;" onclick="instalarApp()">📲 Instalar</button>
+            
             <button class="btn-accion bg-dark" onclick="abrirAuditoria()">📊 Balance Admin</button>
             <button class="btn-accion" onclick="cerrarSesionApp()" style="background:#c62828;">Salir</button>
         </div>
     </header>
-
     <main class="container">
         <section id="vistaInicio">
             <div class="tabs">
@@ -661,6 +663,35 @@ function exportarCSV() {
 }
 
 document.addEventListener("DOMContentLoaded", () => { validarAccesoInicial(); });
+
+    // ==========================================
+// CAPTURADOR DE INSTALACIÓN (PWA)
+// ==========================================
+let eventoInstalacion;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+    // Evita que el navegador lance su propio mini-aviso
+    e.preventDefault();
+    // Guarda el evento para usarlo luego
+    eventoInstalacion = e;
+    // Enciende nuestro botón verde de instalación
+    document.getElementById('btnInstalar').style.display = 'block';
+});
+
+function instalarApp() {
+    if (eventoInstalacion) {
+        // Lanza la ventana emergente nativa del sistema
+        eventoInstalacion.prompt();
+        // Espera a ver qué decide el usuario
+        eventoInstalacion.userChoice.then((resultado) => {
+            if (resultado.outcome === 'accepted') {
+                console.log('El usuario aceptó instalar la App');
+                document.getElementById('btnInstalar').style.display = 'none'; // Escondemos el botón
+            }
+            eventoInstalacion = null;
+        });
+    }
+}
 </script>
 </body>
 </html>
