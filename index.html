@@ -381,29 +381,6 @@ function render() {
     document.getElementById("cuerpoTabla").innerHTML = b;
     document.getElementById("resumenZonal").innerHTML = `<div class="badge">☀️ M: ${cto.M}</div> <div class="badge">🌇 V: ${cto.V}</div> <div class="badge">🌙 N: ${cto.N}</div> <div class="badge">🏠 D: ${cto.D}</div>`;
 }
-        // --- NUEVO: DISEÑO DE LA COLUMNA FIJA CON AYUDANTE ---
-        let colorAyudante = (r.ayu === "SIN ASIGNAR") ? "color:#c62828; font-style:italic;" : "color:#0288d1;";
-        let fila = `<tr>
-            <td class="col-fija" onclick="abrirDetalle(${r.id})" style="cursor:pointer; line-height:1.2; padding-top:6px !important; padding-bottom:6px !important;">
-                <b style="font-size:12px; color:var(--primary); text-decoration:underline;">ROL ${r.id}</b><br>
-                <span style="font-size:10px; color:#333; font-weight:bold;">👷 ${r.nom.split(' ')[0]}</span><br>
-                <span style="font-size:9.5px; ${colorAyudante}">🔧 ${r.ayu.split(' ')[0]}</span>
-            </td>`;
-        // -----------------------------------------------------
-
-        fechas.forEach(f => {
-            let t = getTurnoReal(r.id, f);
-            let act = f.toDateString() === fechaClick.toDateString() ? 'col-activa' : '';
-            if(f.toDateString() === fechaClick.toDateString()) cto[t]++;
-            let iso = f.getFullYear() + "-" + String(f.getMonth()+1).padStart(2, '0') + "-" + String(f.getDate()).padStart(2, '0');
-            fila += `<td class="t-${t} ${act}" onclick="seleccionarColumna('${iso}')">${t}</td>`;
-        });
-        b += fila + "</tr>";
-    });
-    document.getElementById("cuerpoTabla").innerHTML = b;
-    document.getElementById("resumenZonal").innerHTML = `<div class="badge">☀️ M: ${cto.M}</div> <div class="badge">🌇 V: ${cto.V}</div> <div class="badge">🌙 N: ${cto.N}</div> <div class="badge">🏠 D: ${cto.D}</div>`;
-}
-
 // ==========================================
 // VISTA DETALLE Y NAVEGACIÓN TOTALMENTE REPARADA
 // ==========================================
