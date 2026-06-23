@@ -260,7 +260,7 @@ const CONFIG = {
 const dSem = ["Do", "Lu", "Ma", "Mi", "Ju", "Vi", "Sá"];
 const nMeses = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 
-// Diccionario de Feriados de Ley por año
+// Diccionario de Feriados de Ley por año (¡CORREGIDO PARA NO REPETIRSE!)
 const FERIADOS_LEY = {
     2026: ["2026-01-01", "2026-02-02", "2026-03-16", "2026-05-01", "2026-09-16", "2026-11-16", "2026-12-25"],
     2027: ["2027-01-01", "2027-02-01", "2027-03-15", "2027-05-01", "2027-09-16", "2027-11-15", "2027-12-25"]
@@ -271,8 +271,10 @@ const FERIADOS_LEY = {
 const FECHA_BASE_PAGO = new Date(2026, 5, 26); 
 
 function esDiaDePago(fecha) {
-    const d1 = new Date(FECHA_BASE_PAGO).setHours(0,0,0,0);
-    const d2 = new Date(fecha).setHours(0,0,0,0);
+    const d1 = new Date(FECHA_BASE_PAGO.getTime()).setHours(0,0,0,0);
+    // Usamos una copia de la fecha para evitar que se ponga en 00:00 accidentalmente en el renderizado
+    const copiaFecha = new Date(fecha.getTime());
+    const d2 = copiaFecha.setHours(0,0,0,0);
     const diffDias = Math.floor((d2 - d1) / 86400000);
     return diffDias % 14 === 0;
 }
@@ -320,7 +322,10 @@ function inicializarEstructuraBase() {
 // ==========================================
 function getTurnoReal(id, fecha) {
     const r = CONFIG.roles.find(x => x.id === id);
-    const diff = Math.floor((fecha.setHours(0,0,0,0) - CONFIG.fechaBase.setHours(0,0,0,0)) / 86400000);
+    // Clonamos la fecha base para que la cuenta no arrastre el contador del ciclo
+    const dFecha = new Date(fecha.getTime());
+    const dBase = new Date(CONFIG.fechaBase.getTime());
+    const diff = Math.floor((dFecha.setHours(0,0,0,0) - dBase.setHours(0,0,0,0)) / 86400000);
     if(diff < 0) return "-";
     return MATRIZ[(r.idx + Math.floor(diff / 28)) % 15][diff % 28];
 }
@@ -357,7 +362,7 @@ function render() {
         let indicadorPago = esDiaDePago(f) ? ' <span style="color:#2e7d32;" title="Día de Pago">💰</span>' : '';
         
         let estiloFeriado = esFeriado && !act ? 'background: #ffebee;' : ''; 
-        let estiloPago = esDiaDePago(f) && !act && !esFeriado ? 'background: #e8f5e9;' : ''; // Fondo verde tenue si solo es pago
+        let estiloPago = esDiaDePago(f) && !act && !esFeriado ? 'background: #e8f5e9;' : ''; 
         
         h += `<th class="${act}" style="${estiloFeriado || estiloPago}" onclick="seleccionarColumna('${iso}')">
                 <span class="${f.toDateString() === new Date().toDateString() ? 'hoy-texto' : ''}">
@@ -370,7 +375,6 @@ function render() {
     let b = "", cto = {M:0, V:0, N:0, D:0};
     CONFIG.roles.filter(r => (!area || r.a === area) && (!rolFiltro || r.id == rolFiltro)).forEach(r => {
         
-        // Columna fija con Titular y Ayudante integrados
         let colorAyudante = (r.ayu === "SIN ASIGNAR") ? "color:#c62828; font-style:italic;" : "color:#0288d1;";
         let fila = `<tr>
             <td class="col-fija" onclick="abrirDetalle(${r.id})" style="cursor:pointer; line-height:1.2; padding-top:6px !important; padding-bottom:6px !important;">
@@ -386,10 +390,8 @@ function render() {
             
             let iso = f.getFullYear() + "-" + String(f.getMonth()+1).padStart(2, '0') + "-" + String(f.getDate()).padStart(2, '0');
             
-            // --- NUEVO: MARCADOR VISUAL DE FESTIVO EN LAS CELDAS DE TURNO ---
             let esFeriado = FERIADOS_LEY[f.getFullYear()] && FERIADOS_LEY[f.getFullYear()].includes(iso);
             let estiloCeldaFeriado = esFeriado ? 'border: 1px dashed #ef5350; font-weight:900;' : '';
-            // ----------------------------------------------------------------
 
             fila += `<td class="t-${t} ${act}" style="${estiloCeldaFeriado}" onclick="seleccionarColumna('${iso}')">${t}</td>`;
         });
@@ -493,7 +495,6 @@ function pintarDetalle(modo) {
 
             h += `<th style="${estiloHeader}">${dSem[f.getDay()]} ${iconFeriado}${iconPago}<br>${f.getDate()}</th>`; 
             
-            // Estilos para la celda del turno (replicando el recuadro rojo punteado)
             let estiloCelda = esFeriado ? 'border: 1px dashed #ef5350; font-weight:900;' : '';
             b += `<td class="t-${t}" style="${estiloCelda}">${t}</td>`;
         });
@@ -541,36 +542,32 @@ function alimentarFechas() {
 
 function calcularDatosAuditoria() {
     datosAuditoria = [];
-    // Leer el año seleccionado en el combo
     const anioAudit = parseInt(document.getElementById("filtroAnoAuditoria").value);
     const feriadosDelAnio = FERIADOS_LEY[anioAudit] || [];
 
     CONFIG.roles.forEach(r => {
         let s = { id: r.id, a: r.a, N:0, domingos:0, fsLibres:0, fsNegros:0, premiumTotales:0, riesgoNoche:0, rachaFS:0, muro6Dias:0, feriadosQuemados:0 };
         let rachaDiasTrabajados = 0;
-        let strFinesSemana = ""; // L=Libre, O=Operativo, P=Parcial
+        let strFinesSemana = ""; 
         let stringTurnos = "";
 
         for(let d = new Date(anioAudit, 0, 1); d.getFullYear() === anioAudit; d.setDate(d.getDate()+1)) {
             let t = getTurnoReal(r.id, d); 
-            stringTurnos += (t === 'D') ? 'D' : 'T'; // Simplificar a T=Trabaja, D=Descansa
+            stringTurnos += (t === 'D') ? 'D' : 'T'; 
             let iso = d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2, '0') + "-" + String(d.getDate()).padStart(2, '0');
             let esFeriado = feriadosDelAnio.includes(iso) || fechasContractuales.includes(iso);
             
             if(t === 'N') s.N++;
             if(t !== 'D' && d.getDay() === 0) s.domingos++;
 
-            // Días Premium (Trabaja en Domingo o en Festivo)
             if(t !== 'D' && (d.getDay() === 0 || esFeriado)) {
                 s.premiumTotales++;
             }
 
-            // Feriados Quemados (Festivo cae en día de descanso 'D')
             if(t === 'D' && esFeriado) {
                 s.feriadosQuemados++;
             }
 
-            // Métrica: Noche de Alto Riesgo (Entrar a Noche tras 4+ días seguidos laborando)
             if (t !== 'D') {
                 if (t === 'N' && rachaDiasTrabajados >= 4) s.riesgoNoche++;
                 rachaDiasTrabajados++;
@@ -578,7 +575,6 @@ function calcularDatosAuditoria() {
                 rachaDiasTrabajados = 0;
             }
 
-            // Métrica: Fines de semana
             if(d.getDay() === 6) {
                 let dDom = new Date(d); dDom.setDate(dDom.getDate()+1);
                 if(dDom.getFullYear() === anioAudit) {
@@ -590,11 +586,9 @@ function calcularDatosAuditoria() {
             }
         }
 
-        // Métrica: Muro de 6 Días (6 o más 'T' seguidas de una sola 'D' y luego otra 'T')
         let muros = stringTurnos.match(/T{6,}D(?=T)/g) || [];
         s.muro6Dias = muros.length;
 
-        // Métrica: Racha FS Secuestrados
         let rachasO = strFinesSemana.match(/O+/g) || [];
         s.rachaFS = rachasO.length > 0 ? Math.max(...rachasO.map(str => str.length)) : 0;
 
@@ -608,7 +602,7 @@ function ordenarAuditoria(columna) {
 
     datosAuditoria.sort((a, b) => {
         let valA = a[columna]; let valB = b[columna];
-        if (columna === 'fsLibres') return ordenAuditoria.asc ? (valB - valA) : (valA - valB); // Menos libres es peor
+        if (columna === 'fsLibres') return ordenAuditoria.asc ? (valB - valA) : (valA - valB); 
         return ordenAuditoria.asc ? (valA - valB) : (valB - valA);
     });
     renderAuditoria();
