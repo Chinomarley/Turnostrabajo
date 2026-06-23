@@ -1,6 +1,6 @@
 // ¡IMPORTANTE! Cada vez que modifiques tu index.html, 
 // debes cambiar este nombre (ej. v2 a v3, v3 a v4, etc.)
-const CACHE_NAME = "cfe-tacuba-v3";
+const CACHE_NAME = "cfe-tacuba-v5";
 
 const archivosParaCache = [
     "./",
