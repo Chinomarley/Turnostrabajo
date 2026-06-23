@@ -9,6 +9,19 @@
     <meta name="theme-color" content="#004d99">
     <link rel="apple-touch-icon" href="icono-192.png">
 
+    <!-- CAZADOR DE ERRORES: Si Safari falla, pintará la pantalla de rojo -->
+    <script>
+        window.onerror = function(mensaje, url, linea) {
+            document.body.innerHTML = '<div style="background-color: #c62828; color: white; padding: 30px; font-family: sans-serif; height: 100vh; box-sizing: border-box;">' +
+                '<h1 style="font-size: 40px; margin: 0 0 10px 0;">🚨 CRASH</h1>' +
+                '<p><b>Motivo:</b> ' + mensaje + '</p>' +
+                '<p><b>Línea:</b> ' + linea + '</p>' +
+                '<p><i>Toma una captura de esto para corregirlo.</i></p>' +
+                '</div>';
+            return true;
+        };
+    </script>
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" async></script>
     <style>
         :root { --primary: #004d99; --secondary: #0066cc; --bg: #f0f2f5; --card: #ffffff; --text: #1c1e21; }
@@ -60,7 +73,8 @@
         .btn-nav { background: var(--primary); color: white; border: none; width: 35px; height: 35px; border-radius: 50%; font-size: 16px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
         .btn-nav:active { transform: scale(0.95); }
 
-        #bloqueoSeguridad { display: none; }
+        /* Mantenemos oculta la app hasta validar PIN, pero si hay error JS lo atrapará la pantalla roja */
+        #bloqueoSeguridad { display: none; } 
         #vistaDetalle, #vistaAuditoria { display: none; }
         
         #ticketExportar { background: white; padding: 15px; border-radius: 8px; }
@@ -213,16 +227,6 @@
 
 <script>
 // ==========================================
-// SEGURIDAD ANTI-PANTALLA EN BLANCO
-// ==========================================
-window.onerror = function(msg, url, lineNo, columnNo, error) {
-    alert("🚨 Error detectado que bloqueaba la app:\n\n" + msg + "\n\nLínea: " + lineNo);
-    // Si falla algo, forzamos mostrar la app de todos modos para que no se quede en blanco
-    document.getElementById("bloqueoSeguridad").style.display = "block";
-    return false;
-};
-
-// ==========================================
 // MATRIZ Y CONFIGURACIÓN BASE
 // ==========================================
 const CLAVE_ACCESO_GENERAL = "cfe2026"; 
@@ -275,7 +279,7 @@ const FERIADOS_LEY = {
     2027: ["2027-01-01", "2027-02-01", "2027-03-15", "2027-05-01", "2027-09-16", "2027-11-15", "2027-12-25"]
 };
 
-// NUEVO: Calculadora de catorcenas
+// Calculadora de catorcenas
 const FECHA_BASE_PAGO = new Date(2026, 5, 26); 
 
 function esDiaDePago(fecha) {
@@ -298,7 +302,7 @@ let ordenAuditoria = { columna: 'premiumTotales', asc: false };
 let fechasContractuales = [];
 
 // ==========================================
-// CONTROL DE ACCESO (AHORA MÁS SEGURO)
+// CONTROL DE ACCESO
 // ==========================================
 function validarAccesoInicial() {
     try {
@@ -307,20 +311,18 @@ function validarAccesoInicial() {
             document.getElementById("bloqueoSeguridad").style.display = "block";
             inicializarEstructuraBase();
         } else {
-            let login = prompt("Ingrese PIN:");
+            let login = prompt("Ingrese PIN de Operador (cfe2026):");
             if (login === CLAVE_ACCESO_GENERAL) {
                 localStorage.setItem("tokenAccesoCfe", CLAVE_ACCESO_GENERAL);
                 document.getElementById("bloqueoSeguridad").style.display = "block";
                 inicializarEstructuraBase();
             } else {
                 alert("Acceso Denegado");
-                document.getElementById("bloqueoSeguridad").style.display = "block"; // Quitar si prefieres que se quede oculto al fallar
+                // Mantenemos bloqueado si falla el PIN
             }
         }
     } catch (e) {
-        // Esto captura el error si el navegador bloqueó el LocalStorage
-        alert("Aviso: Tu navegador bloqueó la memoria local. Debes ingresar el PIN en cada sesión.");
-        let login = prompt("Ingrese PIN:");
+        let login = prompt("Seguridad Safari Activa. Ingrese PIN manual:");
         if (login === CLAVE_ACCESO_GENERAL) {
             document.getElementById("bloqueoSeguridad").style.display = "block";
             inicializarEstructuraBase();
@@ -708,16 +710,28 @@ function exportarCSV() {
     const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `Balance_CFE_${anioAudit}.csv`; link.click();
 }
 
-// Inicialización de la App
+// INICIALIZACIÓN
 document.addEventListener("DOMContentLoaded", () => { 
     validarAccesoInicial(); 
 });
 
 // ==========================================
-// CAPTURADOR DE INSTALACIÓN (PWA)
+// REGISTRO DEL SERVICE WORKER (EL MOTOR PWA)
 // ==========================================
-let eventoInstalacion;
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+            .then((registration) => {
+                console.log('El Service Worker se registró exitosamente: ', registration.scope);
+            })
+            .catch((error) => {
+                console.log('El registro del Service Worker falló: ', error);
+            });
+    });
+}
 
+// CAPTURADOR DE INSTALACIÓN
+let eventoInstalacion;
 window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     eventoInstalacion = e;
@@ -729,7 +743,7 @@ function instalarApp() {
         eventoInstalacion.prompt();
         eventoInstalacion.userChoice.then((resultado) => {
             if (resultado.outcome === 'accepted') {
-                console.log('El usuario aceptó instalar la App');
+                console.log('App instalada');
                 document.getElementById('btnInstalar').style.display = 'none'; 
             }
             eventoInstalacion = null;
