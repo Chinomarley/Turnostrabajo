@@ -268,6 +268,22 @@ const FERIADOS_LEY = {
     2026: ["2026-01-01", "2026-02-02", "2026-03-16", "2026-05-01", "2026-09-16", "2026-11-16", "2026-12-25"],
     2027: ["2027-01-01", "2027-02-01", "2027-03-15", "2027-05-01", "2027-09-16", "2027-11-15", "2027-12-25"]
 };
+// Diccionario de Feriados de Ley por año
+const FERIADOS_LEY = {
+    2026: ["2026-01-01", "2026-02-02", "2026-03-16", "2026-05-01", "2026-09-16", "2026-11-16", "2026-12-25"],
+    2027: ["2027-01-01", "2027-02-01", "2027-03-15", "2027-05-01", "2027-09-16", "2027-11-15", "2027-12-25"]
+};
+
+// NUEVO: Calculadora de catorcenas
+// Fecha base: Viernes 26 de Junio de 2026 (mes 5 en JS porque empieza en 0)
+const FECHA_BASE_PAGO = new Date(2026, 5, 26); 
+
+function esDiaDePago(fecha) {
+    const d1 = new Date(FECHA_BASE_PAGO).setHours(0,0,0,0);
+    const d2 = new Date(fecha).setHours(0,0,0,0);
+    const diffDias = Math.floor((d2 - d1) / 86400000);
+    return diffDias % 14 === 0;
+}
 
 let diasAMostrar = 28;
 let fechaInicioVista = new Date();
@@ -338,18 +354,24 @@ function render() {
     for(let i=0; i<diasAMostrar; i++) { let f = new Date(fechaInicioVista); f.setDate(fechaInicioVista.getDate() + i); fechas.push(f); }
     document.getElementById("lblDiaSeleccionado").innerText = `${dSem[fechaClick.getDay()]} ${fechaClick.getDate()} de ${nMeses[fechaClick.getMonth()]}`;
 
-    let h = '<th class="col-fija">CUADRILLA</th>';
+        let h = '<th class="col-fija">CUADRILLA</th>';
     fechas.forEach(f => {
         let act = f.toDateString() === fechaClick.toDateString() ? 'th-activo' : '';
         let iso = f.getFullYear() + "-" + String(f.getMonth()+1).padStart(2, '0') + "-" + String(f.getDate()).padStart(2, '0');
         
-        // --- NUEVO: DETECTAR SI EL DÍA ES FESTIVO DE LEY ---
+        // --- DETECTAR FESTIVO Y DÍA DE PAGO ---
         let esFeriado = FERIADOS_LEY[f.getFullYear()] && FERIADOS_LEY[f.getFullYear()].includes(iso);
         let indicadorFeriado = esFeriado ? ' <span style="color:#d32f2f;" title="Feriado Oficial">🔥</span>' : '';
-        let estiloFeriado = esFeriado && !act ? 'background: #ffebee;' : ''; // Fondo rojizo sutil si no está seleccionada
-        // ---------------------------------------------------
-
-        h += `<th class="${act}" style="${estiloFeriado}" onclick="seleccionarColumna('${iso}')"><span class="${f.toDateString() === new Date().toDateString() ? 'hoy-texto' : ''}">${dSem[f.getDay()]}${indicadorFeriado}<br>${f.getDate()}</span></th>`;
+        let indicadorPago = esDiaDePago(f) ? ' <span style="color:#2e7d32;" title="Día de Pago">💰</span>' : '';
+        
+        let estiloFeriado = esFeriado && !act ? 'background: #ffebee;' : ''; 
+        let estiloPago = esDiaDePago(f) && !act && !esFeriado ? 'background: #e8f5e9;' : ''; // Fondo verde tenue si solo es pago
+        
+        h += `<th class="${act}" style="${estiloFeriado || estiloPago}" onclick="seleccionarColumna('${iso}')">
+                <span class="${f.toDateString() === new Date().toDateString() ? 'hoy-texto' : ''}">
+                    ${dSem[f.getDay()]}${indicadorFeriado}${indicadorPago}<br>${f.getDate()}
+                </span>
+              </th>`;
     });
     document.getElementById("cabeceraTabla").innerHTML = h;
 
