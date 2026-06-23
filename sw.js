@@ -1,4 +1,4 @@
-const CACHE_NAME = "cfe-tacuba-v1";
+const CACHE_NAME = "cfe-tacuba-v1.1";
 
 // Aquí le decimos qué archivos debe descargar y guardar en el celular
 const archivosParaCache = [
