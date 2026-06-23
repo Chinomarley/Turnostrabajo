@@ -9,7 +9,7 @@
     <meta name="theme-color" content="#004d99">
     <link rel="apple-touch-icon" href="icono-192.png">
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" async></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         :root { --primary: #004d99; --secondary: #0066cc; --bg: #f0f2f5; --card: #ffffff; --text: #1c1e21; }
         body { font-family: -apple-system, sans-serif; margin: 0; background: var(--bg); color: var(--text); }
@@ -77,11 +77,14 @@
     </style>
 </head>
 <body>
+</div>
 <div id="bloqueoSeguridad">
     <header class="topbar">
         <div style="font-weight:bold; font-size: 16px;">⚡ CFE Tacuba Operaciones</div>
         <div style="display: flex; gap: 8px;">
+            <!-- NUEVO BOTÓN OCULTO POR DEFECTO -->
             <button id="btnInstalar" class="btn-accion bg-green" style="display:none;" onclick="instalarApp()">📲 Instalar</button>
+            
             <button class="btn-accion bg-dark" onclick="abrirAuditoria()">📊 Balance Admin</button>
             <button class="btn-accion" onclick="cerrarSesionApp()" style="background:#c62828;">Salir</button>
         </div>
@@ -213,16 +216,6 @@
 
 <script>
 // ==========================================
-// SEGURIDAD ANTI-PANTALLA EN BLANCO
-// ==========================================
-window.onerror = function(msg, url, lineNo, columnNo, error) {
-    alert("🚨 Error detectado que bloqueaba la app:\n\n" + msg + "\n\nLínea: " + lineNo);
-    // Si falla algo, forzamos mostrar la app de todos modos para que no se quede en blanco
-    document.getElementById("bloqueoSeguridad").style.display = "block";
-    return false;
-};
-
-// ==========================================
 // MATRIZ Y CONFIGURACIÓN BASE
 // ==========================================
 const CLAVE_ACCESO_GENERAL = "cfe2026"; 
@@ -270,21 +263,11 @@ const CONFIG = {
 const dSem = ["Do", "Lu", "Ma", "Mi", "Ju", "Vi", "Sá"];
 const nMeses = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 
+// Diccionario de Feriados de Ley por año
 const FERIADOS_LEY = {
     2026: ["2026-01-01", "2026-02-02", "2026-03-16", "2026-05-01", "2026-09-16", "2026-11-16", "2026-12-25"],
     2027: ["2027-01-01", "2027-02-01", "2027-03-15", "2027-05-01", "2027-09-16", "2027-11-15", "2027-12-25"]
 };
-
-// NUEVO: Calculadora de catorcenas
-const FECHA_BASE_PAGO = new Date(2026, 5, 26); 
-
-function esDiaDePago(fecha) {
-    const d1 = new Date(FECHA_BASE_PAGO.getTime()).setHours(0,0,0,0);
-    const copiaFecha = new Date(fecha.getTime());
-    const d2 = copiaFecha.setHours(0,0,0,0);
-    const diffDias = Math.floor((d2 - d1) / 86400000);
-    return diffDias % 14 === 0;
-}
 
 let diasAMostrar = 28;
 let fechaInicioVista = new Date();
@@ -293,45 +276,30 @@ let rolDetalleActual = null;
 let modoDetalleActual = 28;
 let fechaDetalle = new Date();
 
+// Variables Bóveda
 let datosAuditoria = [];
 let ordenAuditoria = { columna: 'premiumTotales', asc: false };
 let fechasContractuales = [];
 
 // ==========================================
-// CONTROL DE ACCESO (AHORA MÁS SEGURO)
+// CONTROL DE ACCESO
 // ==========================================
 function validarAccesoInicial() {
-    try {
-        let token = localStorage.getItem("tokenAccesoCfe");
-        if (token === CLAVE_ACCESO_GENERAL) {
+    if (localStorage.getItem("tokenAccesoCfe") === CLAVE_ACCESO_GENERAL) {
+        document.getElementById("bloqueoSeguridad").style.display = "block";
+        inicializarEstructuraBase();
+    } else {
+        let login = prompt("Ingrese PIN:");
+        if (login === CLAVE_ACCESO_GENERAL) {
+            localStorage.setItem("tokenAccesoCfe", CLAVE_ACCESO_GENERAL);
             document.getElementById("bloqueoSeguridad").style.display = "block";
             inicializarEstructuraBase();
         } else {
-            let login = prompt("Ingrese PIN:");
-            if (login === CLAVE_ACCESO_GENERAL) {
-                localStorage.setItem("tokenAccesoCfe", CLAVE_ACCESO_GENERAL);
-                document.getElementById("bloqueoSeguridad").style.display = "block";
-                inicializarEstructuraBase();
-            } else {
-                alert("Acceso Denegado");
-                document.getElementById("bloqueoSeguridad").style.display = "block"; // Quitar si prefieres que se quede oculto al fallar
-            }
-        }
-    } catch (e) {
-        // Esto captura el error si el navegador bloqueó el LocalStorage
-        alert("Aviso: Tu navegador bloqueó la memoria local. Debes ingresar el PIN en cada sesión.");
-        let login = prompt("Ingrese PIN:");
-        if (login === CLAVE_ACCESO_GENERAL) {
-            document.getElementById("bloqueoSeguridad").style.display = "block";
-            inicializarEstructuraBase();
+            alert("Acceso Denegado");
         }
     }
 }
-
-function cerrarSesionApp() { 
-    try { localStorage.removeItem("tokenAccesoCfe"); } catch(e) {}
-    window.location.reload(); 
-}
+function cerrarSesionApp() { localStorage.removeItem("tokenAccesoCfe"); window.location.reload(); }
 
 function inicializarEstructuraBase() {
     const selA = document.getElementById("filtroArea"); selA.innerHTML = '<option value="">ZONAS (Todas)</option>';
@@ -344,9 +312,7 @@ function inicializarEstructuraBase() {
 // ==========================================
 function getTurnoReal(id, fecha) {
     const r = CONFIG.roles.find(x => x.id === id);
-    const dFecha = new Date(fecha.getTime());
-    const dBase = new Date(CONFIG.fechaBase.getTime());
-    const diff = Math.floor((dFecha.setHours(0,0,0,0) - dBase.setHours(0,0,0,0)) / 86400000);
+    const diff = Math.floor((fecha.setHours(0,0,0,0) - CONFIG.fechaBase.setHours(0,0,0,0)) / 86400000);
     if(diff < 0) return "-";
     return MATRIZ[(r.idx + Math.floor(diff / 28)) % 15][diff % 28];
 }
@@ -356,7 +322,7 @@ function cambiarFechaBase() { fechaInicioVista = new Date(document.getElementByI
 function irAHoy() {
     const hoy = new Date();
     const yyyy = hoy.getFullYear();
-    const mm = String(hoy.getMonth() + 1).padStart(2, '0'); 
+    const mm = String(hoy.getMonth() + 1).padStart(2, '0'); // Meses van de 0-11
     const dd = String(hoy.getDate()).padStart(2, '0');
     
     document.getElementById("inputFecha").value = `${yyyy}-${mm}-${dd}`;
@@ -377,24 +343,20 @@ function render() {
         let act = f.toDateString() === fechaClick.toDateString() ? 'th-activo' : '';
         let iso = f.getFullYear() + "-" + String(f.getMonth()+1).padStart(2, '0') + "-" + String(f.getDate()).padStart(2, '0');
         
+        // --- NUEVO: DETECTAR SI EL DÍA ES FESTIVO DE LEY ---
         let esFeriado = FERIADOS_LEY[f.getFullYear()] && FERIADOS_LEY[f.getFullYear()].includes(iso);
         let indicadorFeriado = esFeriado ? ' <span style="color:#d32f2f;" title="Feriado Oficial">🔥</span>' : '';
-        let indicadorPago = esDiaDePago(f) ? ' <span style="color:#2e7d32;" title="Día de Pago">💰</span>' : '';
-        
-        let estiloFeriado = esFeriado && !act ? 'background: #ffebee;' : ''; 
-        let estiloPago = esDiaDePago(f) && !act && !esFeriado ? 'background: #e8f5e9;' : ''; 
-        
-        h += `<th class="${act}" style="${estiloFeriado || estiloPago}" onclick="seleccionarColumna('${iso}')">
-                <span class="${f.toDateString() === new Date().toDateString() ? 'hoy-texto' : ''}">
-                    ${dSem[f.getDay()]}${indicadorFeriado}${indicadorPago}<br>${f.getDate()}
-                </span>
-              </th>`;
+        let estiloFeriado = esFeriado && !act ? 'background: #ffebee;' : ''; // Fondo rojizo sutil si no está seleccionada
+        // ---------------------------------------------------
+
+        h += `<th class="${act}" style="${estiloFeriado}" onclick="seleccionarColumna('${iso}')"><span class="${f.toDateString() === new Date().toDateString() ? 'hoy-texto' : ''}">${dSem[f.getDay()]}${indicadorFeriado}<br>${f.getDate()}</span></th>`;
     });
     document.getElementById("cabeceraTabla").innerHTML = h;
 
     let b = "", cto = {M:0, V:0, N:0, D:0};
     CONFIG.roles.filter(r => (!area || r.a === area) && (!rolFiltro || r.id == rolFiltro)).forEach(r => {
         
+        // Columna fija con Titular y Ayudante integrados
         let colorAyudante = (r.ayu === "SIN ASIGNAR") ? "color:#c62828; font-style:italic;" : "color:#0288d1;";
         let fila = `<tr>
             <td class="col-fija" onclick="abrirDetalle(${r.id})" style="cursor:pointer; line-height:1.2; padding-top:6px !important; padding-bottom:6px !important;">
@@ -410,8 +372,10 @@ function render() {
             
             let iso = f.getFullYear() + "-" + String(f.getMonth()+1).padStart(2, '0') + "-" + String(f.getDate()).padStart(2, '0');
             
+            // --- NUEVO: MARCADOR VISUAL DE FESTIVO EN LAS CELDAS DE TURNO ---
             let esFeriado = FERIADOS_LEY[f.getFullYear()] && FERIADOS_LEY[f.getFullYear()].includes(iso);
             let estiloCeldaFeriado = esFeriado ? 'border: 1px dashed #ef5350; font-weight:900;' : '';
+            // ----------------------------------------------------------------
 
             fila += `<td class="t-${t} ${act}" style="${estiloCeldaFeriado}" onclick="seleccionarColumna('${iso}')">${t}</td>`;
         });
@@ -420,9 +384,8 @@ function render() {
     document.getElementById("cuerpoTabla").innerHTML = b;
     document.getElementById("resumenZonal").innerHTML = `<div class="badge">☀️ M: ${cto.M}</div> <div class="badge">🌇 V: ${cto.V}</div> <div class="badge">🌙 N: ${cto.N}</div> <div class="badge">🏠 D: ${cto.D}</div>`;
 }
-
 // ==========================================
-// VISTA DETALLE Y NAVEGACIÓN
+// VISTA DETALLE Y NAVEGACIÓN TOTALMENTE REPARADA
 // ==========================================
 function formatoFecha(d) { return d.getDate() + " " + nMeses[d.getMonth()]; }
 
@@ -498,23 +461,8 @@ function pintarDetalle(modo) {
     for(let i=0; i < fechas.length; i += 7) {
         let chunk = fechas.slice(i, i+7); let h = '<tr>', b = '<tr>';
         chunk.forEach(f => {
-            let t = getTurnoReal(rolDetalleActual, f); 
-            if(t === 'N') cN++; 
-            if(t !== 'D' && f.getDay() === 0) cDom++;
-            
-            let iso = f.getFullYear() + "-" + String(f.getMonth()+1).padStart(2, '0') + "-" + String(f.getDate()).padStart(2, '0');
-            let esFeriado = FERIADOS_LEY[f.getFullYear()] && FERIADOS_LEY[f.getFullYear()].includes(iso);
-            let iconFeriado = esFeriado ? '🔥' : '';
-            let iconPago = esDiaDePago(f) ? '💰' : '';
-            
-            let estiloHeader = f.getDay() === 0 ? 'color:#d32f2f;' : '';
-            if (esFeriado) estiloHeader += ' background:#ffebee;';
-            else if (esDiaDePago(f)) estiloHeader += ' background:#e8f5e9;';
-
-            h += `<th style="${estiloHeader}">${dSem[f.getDay()]} ${iconFeriado}${iconPago}<br>${f.getDate()}</th>`; 
-            
-            let estiloCelda = esFeriado ? 'border: 1px dashed #ef5350; font-weight:900;' : '';
-            b += `<td class="t-${t}" style="${estiloCelda}">${t}</td>`;
+            let t = getTurnoReal(rolDetalleActual, f); if(t === 'N') cN++; if(t !== 'D' && f.getDay() === 0) cDom++;
+            h += `<th ${f.getDay()===0?'style="color:#d32f2f;"':''}>${dSem[f.getDay()]}<br>${f.getDate()}</th>`; b += `<td class="t-${t}">${t}</td>`;
         });
         while(chunk.length < 7) { h += `<th>-</th>`; b += `<td>-</td>`; chunk.push('fill'); }
         htmlChunks += `<table class="tabla-chunk"><thead>${h}</tr></thead><tbody>${b}</tr></tbody></table>`;
@@ -560,32 +508,36 @@ function alimentarFechas() {
 
 function calcularDatosAuditoria() {
     datosAuditoria = [];
+    // Leer el año seleccionado en el combo
     const anioAudit = parseInt(document.getElementById("filtroAnoAuditoria").value);
     const feriadosDelAnio = FERIADOS_LEY[anioAudit] || [];
 
     CONFIG.roles.forEach(r => {
         let s = { id: r.id, a: r.a, N:0, domingos:0, fsLibres:0, fsNegros:0, premiumTotales:0, riesgoNoche:0, rachaFS:0, muro6Dias:0, feriadosQuemados:0 };
         let rachaDiasTrabajados = 0;
-        let strFinesSemana = ""; 
+        let strFinesSemana = ""; // L=Libre, O=Operativo, P=Parcial
         let stringTurnos = "";
 
         for(let d = new Date(anioAudit, 0, 1); d.getFullYear() === anioAudit; d.setDate(d.getDate()+1)) {
             let t = getTurnoReal(r.id, d); 
-            stringTurnos += (t === 'D') ? 'D' : 'T'; 
+            stringTurnos += (t === 'D') ? 'D' : 'T'; // Simplificar a T=Trabaja, D=Descansa
             let iso = d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2, '0') + "-" + String(d.getDate()).padStart(2, '0');
             let esFeriado = feriadosDelAnio.includes(iso) || fechasContractuales.includes(iso);
             
             if(t === 'N') s.N++;
             if(t !== 'D' && d.getDay() === 0) s.domingos++;
 
+            // Días Premium (Trabaja en Domingo o en Festivo)
             if(t !== 'D' && (d.getDay() === 0 || esFeriado)) {
                 s.premiumTotales++;
             }
 
+            // Feriados Quemados (Festivo cae en día de descanso 'D')
             if(t === 'D' && esFeriado) {
                 s.feriadosQuemados++;
             }
 
+            // Métrica: Noche de Alto Riesgo (Entrar a Noche tras 4+ días seguidos laborando)
             if (t !== 'D') {
                 if (t === 'N' && rachaDiasTrabajados >= 4) s.riesgoNoche++;
                 rachaDiasTrabajados++;
@@ -593,6 +545,7 @@ function calcularDatosAuditoria() {
                 rachaDiasTrabajados = 0;
             }
 
+            // Métrica: Fines de semana
             if(d.getDay() === 6) {
                 let dDom = new Date(d); dDom.setDate(dDom.getDate()+1);
                 if(dDom.getFullYear() === anioAudit) {
@@ -604,9 +557,11 @@ function calcularDatosAuditoria() {
             }
         }
 
+        // Métrica: Muro de 6 Días (6 o más 'T' seguidas de una sola 'D' y luego otra 'T')
         let muros = stringTurnos.match(/T{6,}D(?=T)/g) || [];
         s.muro6Dias = muros.length;
 
+        // Métrica: Racha FS Secuestrados
         let rachasO = strFinesSemana.match(/O+/g) || [];
         s.rachaFS = rachasO.length > 0 ? Math.max(...rachasO.map(str => str.length)) : 0;
 
@@ -620,7 +575,7 @@ function ordenarAuditoria(columna) {
 
     datosAuditoria.sort((a, b) => {
         let valA = a[columna]; let valB = b[columna];
-        if (columna === 'fsLibres') return ordenAuditoria.asc ? (valB - valA) : (valA - valB); 
+        if (columna === 'fsLibres') return ordenAuditoria.asc ? (valB - valA) : (valA - valB); // Menos libres es peor
         return ordenAuditoria.asc ? (valA - valB) : (valB - valA);
     });
     renderAuditoria();
@@ -708,29 +663,31 @@ function exportarCSV() {
     const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `Balance_CFE_${anioAudit}.csv`; link.click();
 }
 
-// Inicialización de la App
-document.addEventListener("DOMContentLoaded", () => { 
-    validarAccesoInicial(); 
-});
+document.addEventListener("DOMContentLoaded", () => { validarAccesoInicial(); });
 
 // ==========================================
-// CAPTURADOR DE INSTALACIÓN (PWA)
+// CAPTURADOR DE INSTALACIÓN (PWA) - BOTÓN SUPERIOR
 // ==========================================
 let eventoInstalacion;
 
 window.addEventListener('beforeinstallprompt', (e) => {
+    // Evita que el navegador lance su propio mini-aviso
     e.preventDefault();
+    // Guarda el evento para usarlo luego
     eventoInstalacion = e;
+    // Enciende nuestro botón verde pequeño en la barra superior
     document.getElementById('btnInstalar').style.display = 'block';
 });
 
 function instalarApp() {
     if (eventoInstalacion) {
+        // Lanza la ventana emergente nativa del sistema
         eventoInstalacion.prompt();
+        // Espera a ver qué decide el usuario
         eventoInstalacion.userChoice.then((resultado) => {
             if (resultado.outcome === 'accepted') {
                 console.log('El usuario aceptó instalar la App');
-                document.getElementById('btnInstalar').style.display = 'none'; 
+                document.getElementById('btnInstalar').style.display = 'none'; // Escondemos el botón
             }
             eventoInstalacion = null;
         });
