@@ -77,14 +77,11 @@
     </style>
 </head>
 <body>
-</div>
 <div id="bloqueoSeguridad">
     <header class="topbar">
         <div style="font-weight:bold; font-size: 16px;">⚡ CFE Tacuba Operaciones</div>
         <div style="display: flex; gap: 8px;">
-            <!-- NUEVO BOTÓN OCULTO POR DEFECTO -->
             <button id="btnInstalar" class="btn-accion bg-green" style="display:none;" onclick="instalarApp()">📲 Instalar</button>
-            
             <button class="btn-accion bg-dark" onclick="abrirAuditoria()">📊 Balance Admin</button>
             <button class="btn-accion" onclick="cerrarSesionApp()" style="background:#c62828;">Salir</button>
         </div>
@@ -269,6 +266,17 @@ const FERIADOS_LEY = {
     2027: ["2027-01-01", "2027-02-01", "2027-03-15", "2027-05-01", "2027-09-16", "2027-11-15", "2027-12-25"]
 };
 
+// NUEVO: Calculadora de catorcenas
+// Fecha base: Viernes 26 de Junio de 2026 (mes 5 en JS porque empieza en 0)
+const FECHA_BASE_PAGO = new Date(2026, 5, 26); 
+
+function esDiaDePago(fecha) {
+    const d1 = new Date(FECHA_BASE_PAGO).setHours(0,0,0,0);
+    const d2 = new Date(fecha).setHours(0,0,0,0);
+    const diffDias = Math.floor((d2 - d1) / 86400000);
+    return diffDias % 14 === 0;
+}
+
 let diasAMostrar = 28;
 let fechaInicioVista = new Date();
 let fechaClick = new Date();
@@ -343,13 +351,19 @@ function render() {
         let act = f.toDateString() === fechaClick.toDateString() ? 'th-activo' : '';
         let iso = f.getFullYear() + "-" + String(f.getMonth()+1).padStart(2, '0') + "-" + String(f.getDate()).padStart(2, '0');
         
-        // --- NUEVO: DETECTAR SI EL DÍA ES FESTIVO DE LEY ---
+        // --- DETECTAR FESTIVO Y DÍA DE PAGO ---
         let esFeriado = FERIADOS_LEY[f.getFullYear()] && FERIADOS_LEY[f.getFullYear()].includes(iso);
         let indicadorFeriado = esFeriado ? ' <span style="color:#d32f2f;" title="Feriado Oficial">🔥</span>' : '';
-        let estiloFeriado = esFeriado && !act ? 'background: #ffebee;' : ''; // Fondo rojizo sutil si no está seleccionada
-        // ---------------------------------------------------
-
-        h += `<th class="${act}" style="${estiloFeriado}" onclick="seleccionarColumna('${iso}')"><span class="${f.toDateString() === new Date().toDateString() ? 'hoy-texto' : ''}">${dSem[f.getDay()]}${indicadorFeriado}<br>${f.getDate()}</span></th>`;
+        let indicadorPago = esDiaDePago(f) ? ' <span style="color:#2e7d32;" title="Día de Pago">💰</span>' : '';
+        
+        let estiloFeriado = esFeriado && !act ? 'background: #ffebee;' : ''; 
+        let estiloPago = esDiaDePago(f) && !act && !esFeriado ? 'background: #e8f5e9;' : ''; // Fondo verde tenue si solo es pago
+        
+        h += `<th class="${act}" style="${estiloFeriado || estiloPago}" onclick="seleccionarColumna('${iso}')">
+                <span class="${f.toDateString() === new Date().toDateString() ? 'hoy-texto' : ''}">
+                    ${dSem[f.getDay()]}${indicadorFeriado}${indicadorPago}<br>${f.getDate()}
+                </span>
+              </th>`;
     });
     document.getElementById("cabeceraTabla").innerHTML = h;
 
@@ -384,6 +398,7 @@ function render() {
     document.getElementById("cuerpoTabla").innerHTML = b;
     document.getElementById("resumenZonal").innerHTML = `<div class="badge">☀️ M: ${cto.M}</div> <div class="badge">🌇 V: ${cto.V}</div> <div class="badge">🌙 N: ${cto.N}</div> <div class="badge">🏠 D: ${cto.D}</div>`;
 }
+
 // ==========================================
 // VISTA DETALLE Y NAVEGACIÓN TOTALMENTE REPARADA
 // ==========================================
@@ -461,8 +476,26 @@ function pintarDetalle(modo) {
     for(let i=0; i < fechas.length; i += 7) {
         let chunk = fechas.slice(i, i+7); let h = '<tr>', b = '<tr>';
         chunk.forEach(f => {
-            let t = getTurnoReal(rolDetalleActual, f); if(t === 'N') cN++; if(t !== 'D' && f.getDay() === 0) cDom++;
-            h += `<th ${f.getDay()===0?'style="color:#d32f2f;"':''}>${dSem[f.getDay()]}<br>${f.getDate()}</th>`; b += `<td class="t-${t}">${t}</td>`;
+            let t = getTurnoReal(rolDetalleActual, f); 
+            if(t === 'N') cN++; 
+            if(t !== 'D' && f.getDay() === 0) cDom++;
+            
+            // --- CÁLCULO DE ÍCONOS PARA EL DETALLE ---
+            let iso = f.getFullYear() + "-" + String(f.getMonth()+1).padStart(2, '0') + "-" + String(f.getDate()).padStart(2, '0');
+            let esFeriado = FERIADOS_LEY[f.getFullYear()] && FERIADOS_LEY[f.getFullYear()].includes(iso);
+            let iconFeriado = esFeriado ? '🔥' : '';
+            let iconPago = esDiaDePago(f) ? '💰' : '';
+            
+            // Estilos para la cabecera del día
+            let estiloHeader = f.getDay() === 0 ? 'color:#d32f2f;' : '';
+            if (esFeriado) estiloHeader += ' background:#ffebee;';
+            else if (esDiaDePago(f)) estiloHeader += ' background:#e8f5e9;';
+
+            h += `<th style="${estiloHeader}">${dSem[f.getDay()]} ${iconFeriado}${iconPago}<br>${f.getDate()}</th>`; 
+            
+            // Estilos para la celda del turno (replicando el recuadro rojo punteado)
+            let estiloCelda = esFeriado ? 'border: 1px dashed #ef5350; font-weight:900;' : '';
+            b += `<td class="t-${t}" style="${estiloCelda}">${t}</td>`;
         });
         while(chunk.length < 7) { h += `<th>-</th>`; b += `<td>-</td>`; chunk.push('fill'); }
         htmlChunks += `<table class="tabla-chunk"><thead>${h}</tr></thead><tbody>${b}</tr></tbody></table>`;
@@ -671,23 +704,18 @@ document.addEventListener("DOMContentLoaded", () => { validarAccesoInicial(); })
 let eventoInstalacion;
 
 window.addEventListener('beforeinstallprompt', (e) => {
-    // Evita que el navegador lance su propio mini-aviso
     e.preventDefault();
-    // Guarda el evento para usarlo luego
     eventoInstalacion = e;
-    // Enciende nuestro botón verde pequeño en la barra superior
     document.getElementById('btnInstalar').style.display = 'block';
 });
 
 function instalarApp() {
     if (eventoInstalacion) {
-        // Lanza la ventana emergente nativa del sistema
         eventoInstalacion.prompt();
-        // Espera a ver qué decide el usuario
         eventoInstalacion.userChoice.then((resultado) => {
             if (resultado.outcome === 'accepted') {
                 console.log('El usuario aceptó instalar la App');
-                document.getElementById('btnInstalar').style.display = 'none'; // Escondemos el botón
+                document.getElementById('btnInstalar').style.display = 'none'; 
             }
             eventoInstalacion = null;
         });
@@ -695,4 +723,4 @@ function instalarApp() {
 }
 </script>
 </body>
-</html> 
+</html>
