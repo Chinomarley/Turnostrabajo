@@ -9,7 +9,7 @@
     <meta name="theme-color" content="#004d99">
     <link rel="apple-touch-icon" href="icono-192.png">
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" async></script>
     <style>
         :root { --primary: #004d99; --secondary: #0066cc; --bg: #f0f2f5; --card: #ffffff; --text: #1c1e21; }
         body { font-family: -apple-system, sans-serif; margin: 0; background: var(--bg); color: var(--text); }
@@ -213,6 +213,16 @@
 
 <script>
 // ==========================================
+// SEGURIDAD ANTI-PANTALLA EN BLANCO
+// ==========================================
+window.onerror = function(msg, url, lineNo, columnNo, error) {
+    alert("🚨 Error detectado que bloqueaba la app:\n\n" + msg + "\n\nLínea: " + lineNo);
+    // Si falla algo, forzamos mostrar la app de todos modos para que no se quede en blanco
+    document.getElementById("bloqueoSeguridad").style.display = "block";
+    return false;
+};
+
+// ==========================================
 // MATRIZ Y CONFIGURACIÓN BASE
 // ==========================================
 const CLAVE_ACCESO_GENERAL = "cfe2026"; 
@@ -260,19 +270,16 @@ const CONFIG = {
 const dSem = ["Do", "Lu", "Ma", "Mi", "Ju", "Vi", "Sá"];
 const nMeses = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 
-// Diccionario de Feriados de Ley por año (¡CORREGIDO PARA NO REPETIRSE!)
 const FERIADOS_LEY = {
     2026: ["2026-01-01", "2026-02-02", "2026-03-16", "2026-05-01", "2026-09-16", "2026-11-16", "2026-12-25"],
     2027: ["2027-01-01", "2027-02-01", "2027-03-15", "2027-05-01", "2027-09-16", "2027-11-15", "2027-12-25"]
 };
 
 // NUEVO: Calculadora de catorcenas
-// Fecha base: Viernes 26 de Junio de 2026 (mes 5 en JS porque empieza en 0)
 const FECHA_BASE_PAGO = new Date(2026, 5, 26); 
 
 function esDiaDePago(fecha) {
     const d1 = new Date(FECHA_BASE_PAGO.getTime()).setHours(0,0,0,0);
-    // Usamos una copia de la fecha para evitar que se ponga en 00:00 accidentalmente en el renderizado
     const copiaFecha = new Date(fecha.getTime());
     const d2 = copiaFecha.setHours(0,0,0,0);
     const diffDias = Math.floor((d2 - d1) / 86400000);
@@ -286,30 +293,45 @@ let rolDetalleActual = null;
 let modoDetalleActual = 28;
 let fechaDetalle = new Date();
 
-// Variables Bóveda
 let datosAuditoria = [];
 let ordenAuditoria = { columna: 'premiumTotales', asc: false };
 let fechasContractuales = [];
 
 // ==========================================
-// CONTROL DE ACCESO
+// CONTROL DE ACCESO (AHORA MÁS SEGURO)
 // ==========================================
 function validarAccesoInicial() {
-    if (localStorage.getItem("tokenAccesoCfe") === CLAVE_ACCESO_GENERAL) {
-        document.getElementById("bloqueoSeguridad").style.display = "block";
-        inicializarEstructuraBase();
-    } else {
-        let login = prompt("Ingrese PIN:");
-        if (login === CLAVE_ACCESO_GENERAL) {
-            localStorage.setItem("tokenAccesoCfe", CLAVE_ACCESO_GENERAL);
+    try {
+        let token = localStorage.getItem("tokenAccesoCfe");
+        if (token === CLAVE_ACCESO_GENERAL) {
             document.getElementById("bloqueoSeguridad").style.display = "block";
             inicializarEstructuraBase();
         } else {
-            alert("Acceso Denegado");
+            let login = prompt("Ingrese PIN:");
+            if (login === CLAVE_ACCESO_GENERAL) {
+                localStorage.setItem("tokenAccesoCfe", CLAVE_ACCESO_GENERAL);
+                document.getElementById("bloqueoSeguridad").style.display = "block";
+                inicializarEstructuraBase();
+            } else {
+                alert("Acceso Denegado");
+                document.getElementById("bloqueoSeguridad").style.display = "block"; // Quitar si prefieres que se quede oculto al fallar
+            }
+        }
+    } catch (e) {
+        // Esto captura el error si el navegador bloqueó el LocalStorage
+        alert("Aviso: Tu navegador bloqueó la memoria local. Debes ingresar el PIN en cada sesión.");
+        let login = prompt("Ingrese PIN:");
+        if (login === CLAVE_ACCESO_GENERAL) {
+            document.getElementById("bloqueoSeguridad").style.display = "block";
+            inicializarEstructuraBase();
         }
     }
 }
-function cerrarSesionApp() { localStorage.removeItem("tokenAccesoCfe"); window.location.reload(); }
+
+function cerrarSesionApp() { 
+    try { localStorage.removeItem("tokenAccesoCfe"); } catch(e) {}
+    window.location.reload(); 
+}
 
 function inicializarEstructuraBase() {
     const selA = document.getElementById("filtroArea"); selA.innerHTML = '<option value="">ZONAS (Todas)</option>';
@@ -322,7 +344,6 @@ function inicializarEstructuraBase() {
 // ==========================================
 function getTurnoReal(id, fecha) {
     const r = CONFIG.roles.find(x => x.id === id);
-    // Clonamos la fecha base para que la cuenta no arrastre el contador del ciclo
     const dFecha = new Date(fecha.getTime());
     const dBase = new Date(CONFIG.fechaBase.getTime());
     const diff = Math.floor((dFecha.setHours(0,0,0,0) - dBase.setHours(0,0,0,0)) / 86400000);
@@ -335,7 +356,7 @@ function cambiarFechaBase() { fechaInicioVista = new Date(document.getElementByI
 function irAHoy() {
     const hoy = new Date();
     const yyyy = hoy.getFullYear();
-    const mm = String(hoy.getMonth() + 1).padStart(2, '0'); // Meses van de 0-11
+    const mm = String(hoy.getMonth() + 1).padStart(2, '0'); 
     const dd = String(hoy.getDate()).padStart(2, '0');
     
     document.getElementById("inputFecha").value = `${yyyy}-${mm}-${dd}`;
@@ -356,7 +377,6 @@ function render() {
         let act = f.toDateString() === fechaClick.toDateString() ? 'th-activo' : '';
         let iso = f.getFullYear() + "-" + String(f.getMonth()+1).padStart(2, '0') + "-" + String(f.getDate()).padStart(2, '0');
         
-        // --- DETECTAR FESTIVO Y DÍA DE PAGO ---
         let esFeriado = FERIADOS_LEY[f.getFullYear()] && FERIADOS_LEY[f.getFullYear()].includes(iso);
         let indicadorFeriado = esFeriado ? ' <span style="color:#d32f2f;" title="Feriado Oficial">🔥</span>' : '';
         let indicadorPago = esDiaDePago(f) ? ' <span style="color:#2e7d32;" title="Día de Pago">💰</span>' : '';
@@ -402,7 +422,7 @@ function render() {
 }
 
 // ==========================================
-// VISTA DETALLE Y NAVEGACIÓN TOTALMENTE REPARADA
+// VISTA DETALLE Y NAVEGACIÓN
 // ==========================================
 function formatoFecha(d) { return d.getDate() + " " + nMeses[d.getMonth()]; }
 
@@ -482,13 +502,11 @@ function pintarDetalle(modo) {
             if(t === 'N') cN++; 
             if(t !== 'D' && f.getDay() === 0) cDom++;
             
-            // --- CÁLCULO DE ÍCONOS PARA EL DETALLE ---
             let iso = f.getFullYear() + "-" + String(f.getMonth()+1).padStart(2, '0') + "-" + String(f.getDate()).padStart(2, '0');
             let esFeriado = FERIADOS_LEY[f.getFullYear()] && FERIADOS_LEY[f.getFullYear()].includes(iso);
             let iconFeriado = esFeriado ? '🔥' : '';
             let iconPago = esDiaDePago(f) ? '💰' : '';
             
-            // Estilos para la cabecera del día
             let estiloHeader = f.getDay() === 0 ? 'color:#d32f2f;' : '';
             if (esFeriado) estiloHeader += ' background:#ffebee;';
             else if (esDiaDePago(f)) estiloHeader += ' background:#e8f5e9;';
@@ -690,10 +708,13 @@ function exportarCSV() {
     const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `Balance_CFE_${anioAudit}.csv`; link.click();
 }
 
-document.addEventListener("DOMContentLoaded", () => { validarAccesoInicial(); });
+// Inicialización de la App
+document.addEventListener("DOMContentLoaded", () => { 
+    validarAccesoInicial(); 
+});
 
 // ==========================================
-// CAPTURADOR DE INSTALACIÓN (PWA) - BOTÓN SUPERIOR
+// CAPTURADOR DE INSTALACIÓN (PWA)
 // ==========================================
 let eventoInstalacion;
 
