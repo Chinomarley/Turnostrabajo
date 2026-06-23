@@ -77,14 +77,11 @@
     </style>
 </head>
 <body>
-</div>
 <div id="bloqueoSeguridad">
     <header class="topbar">
         <div style="font-weight:bold; font-size: 16px;">⚡ CFE Tacuba Operaciones</div>
         <div style="display: flex; gap: 8px;">
-            <!-- NUEVO BOTÓN OCULTO POR DEFECTO -->
             <button id="btnInstalar" class="btn-accion bg-green" style="display:none;" onclick="instalarApp()">📲 Instalar</button>
-            
             <button class="btn-accion bg-dark" onclick="abrirAuditoria()">📊 Balance Admin</button>
             <button class="btn-accion" onclick="cerrarSesionApp()" style="background:#c62828;">Salir</button>
         </div>
@@ -268,11 +265,6 @@ const FERIADOS_LEY = {
     2026: ["2026-01-01", "2026-02-02", "2026-03-16", "2026-05-01", "2026-09-16", "2026-11-16", "2026-12-25"],
     2027: ["2027-01-01", "2027-02-01", "2027-03-15", "2027-05-01", "2027-09-16", "2027-11-15", "2027-12-25"]
 };
-// Diccionario de Feriados de Ley por año
-const FERIADOS_LEY = {
-    2026: ["2026-01-01", "2026-02-02", "2026-03-16", "2026-05-01", "2026-09-16", "2026-11-16", "2026-12-25"],
-    2027: ["2027-01-01", "2027-02-01", "2027-03-15", "2027-05-01", "2027-09-16", "2027-11-15", "2027-12-25"]
-};
 
 // NUEVO: Calculadora de catorcenas
 // Fecha base: Viernes 26 de Junio de 2026 (mes 5 en JS porque empieza en 0)
@@ -354,7 +346,7 @@ function render() {
     for(let i=0; i<diasAMostrar; i++) { let f = new Date(fechaInicioVista); f.setDate(fechaInicioVista.getDate() + i); fechas.push(f); }
     document.getElementById("lblDiaSeleccionado").innerText = `${dSem[fechaClick.getDay()]} ${fechaClick.getDate()} de ${nMeses[fechaClick.getMonth()]}`;
 
-        let h = '<th class="col-fija">CUADRILLA</th>';
+    let h = '<th class="col-fija">CUADRILLA</th>';
     fechas.forEach(f => {
         let act = f.toDateString() === fechaClick.toDateString() ? 'th-activo' : '';
         let iso = f.getFullYear() + "-" + String(f.getMonth()+1).padStart(2, '0') + "-" + String(f.getDate()).padStart(2, '0');
@@ -406,6 +398,7 @@ function render() {
     document.getElementById("cuerpoTabla").innerHTML = b;
     document.getElementById("resumenZonal").innerHTML = `<div class="badge">☀️ M: ${cto.M}</div> <div class="badge">🌇 V: ${cto.V}</div> <div class="badge">🌙 N: ${cto.N}</div> <div class="badge">🏠 D: ${cto.D}</div>`;
 }
+
 // ==========================================
 // VISTA DETALLE Y NAVEGACIÓN TOTALMENTE REPARADA
 // ==========================================
@@ -456,7 +449,30 @@ function pintarDetalle(modo) {
         
         let dif = Math.floor((fh - fd) / 86400000); 
         if(dif < 0) dif = 0; 
-        if(dif > 120) dif = 120; // Limite de     let cN=0, cDom=0; let htmlChunks = "";
+        if(dif > 120) dif = 120; // Limite de seguridad
+        
+        for(let i=0; i<=dif; i++) { 
+            let f = new Date(fd); f.setDate(fd.getDate()+i); fechas.push(f); 
+        }
+        document.getElementById("lblPeriodoDetalle").innerText = `Turnos del ${formatoFecha(fechas[0])} al ${formatoFecha(fechas[fechas.length-1])}`;
+    } else {
+        document.getElementById("panelLibre").style.display = "none"; 
+        document.getElementById("navPeriodo").style.display = "flex";
+        
+        if (modo === 7) {
+            for(let i=0; i<7; i++) { let f = new Date(ref); f.setDate(ref.getDate()+i); fechas.push(f); }
+            document.getElementById("lblPeriodoDetalle").innerText = `${fechas[0].getDate()} ${nMeses[fechas[0].getMonth()]} - ${formatoFecha(fechas[6])} ${fechas[0].getFullYear()}`;
+        } else if (modo === 'mes') {
+            const ult = new Date(ref.getFullYear(), ref.getMonth() + 1, 0).getDate(); 
+            for(let i=1; i<=ult; i++) fechas.push(new Date(ref.getFullYear(), ref.getMonth(), i));
+            document.getElementById("lblPeriodoDetalle").innerText = `Mes de ${nMeses[ref.getMonth()]} ${ref.getFullYear()}`;
+        } else {
+            for(let i=0; i<28; i++) { let f = new Date(ref); f.setDate(ref.getDate()+i); fechas.push(f); }
+            document.getElementById("lblPeriodoDetalle").innerText = `Ciclo: ${fechas[0].getDate()} ${nMeses[fechas[0].getMonth()]} - ${formatoFecha(fechas[27])}`;
+        }
+    }
+
+    let cN=0, cDom=0; let htmlChunks = "";
     for(let i=0; i < fechas.length; i += 7) {
         let chunk = fechas.slice(i, i+7); let h = '<tr>', b = '<tr>';
         chunk.forEach(f => {
@@ -480,37 +496,6 @@ function pintarDetalle(modo) {
             // Estilos para la celda del turno (replicando el recuadro rojo punteado)
             let estiloCelda = esFeriado ? 'border: 1px dashed #ef5350; font-weight:900;' : '';
             b += `<td class="t-${t}" style="${estiloCelda}">${t}</td>`;
-        });
-        while(chunk.length < 7) { h += `<th>-</th>`; b += `<td>-</td>`; chunk.push('fill'); }
-        htmlChunks += `<table class="tabla-chunk"><thead>${h}</tr></thead><tbody>${b}</tr></tbody></table>`;
-    }
-    document.getElementById("contenedorTablasTicket").innerHTML = htmlChunks;
-    document.getElementById("statNoches").innerText = cN; document.getElementById("statDomingos").innerText = cDom;
-
-        document.getElementById("lblPeriodoDetalle").innerText = `Turnos del ${formatoFecha(fechas[0])} al ${formatoFecha(fechas[fechas.length-1])}`;
-    } else {
-        document.getElementById("panelLibre").style.display = "none"; 
-        document.getElementById("navPeriodo").style.display = "flex";
-        
-        if (modo === 7) {
-            for(let i=0; i<7; i++) { let f = new Date(ref); f.setDate(ref.getDate()+i); fechas.push(f); }
-            document.getElementById("lblPeriodoDetalle").innerText = `${fechas[0].getDate()} ${nMeses[fechas[0].getMonth()]} - ${formatoFecha(fechas[6])} ${fechas[0].getFullYear()}`;
-        } else if (modo === 'mes') {
-            const ult = new Date(ref.getFullYear(), ref.getMonth() + 1, 0).getDate(); 
-            for(let i=1; i<=ult; i++) fechas.push(new Date(ref.getFullYear(), ref.getMonth(), i));
-            document.getElementById("lblPeriodoDetalle").innerText = `Mes de ${nMeses[ref.getMonth()]} ${ref.getFullYear()}`;
-        } else {
-            for(let i=0; i<28; i++) { let f = new Date(ref); f.setDate(ref.getDate()+i); fechas.push(f); }
-            document.getElementById("lblPeriodoDetalle").innerText = `Ciclo: ${fechas[0].getDate()} ${nMeses[fechas[0].getMonth()]} - ${formatoFecha(fechas[27])}`;
-        }
-    }
-
-    let cN=0, cDom=0; let htmlChunks = "";
-    for(let i=0; i < fechas.length; i += 7) {
-        let chunk = fechas.slice(i, i+7); let h = '<tr>', b = '<tr>';
-        chunk.forEach(f => {
-            let t = getTurnoReal(rolDetalleActual, f); if(t === 'N') cN++; if(t !== 'D' && f.getDay() === 0) cDom++;
-            h += `<th ${f.getDay()===0?'style="color:#d32f2f;"':''}>${dSem[f.getDay()]}<br>${f.getDate()}</th>`; b += `<td class="t-${t}">${t}</td>`;
         });
         while(chunk.length < 7) { h += `<th>-</th>`; b += `<td>-</td>`; chunk.push('fill'); }
         htmlChunks += `<table class="tabla-chunk"><thead>${h}</tr></thead><tbody>${b}</tr></tbody></table>`;
@@ -719,23 +704,18 @@ document.addEventListener("DOMContentLoaded", () => { validarAccesoInicial(); })
 let eventoInstalacion;
 
 window.addEventListener('beforeinstallprompt', (e) => {
-    // Evita que el navegador lance su propio mini-aviso
     e.preventDefault();
-    // Guarda el evento para usarlo luego
     eventoInstalacion = e;
-    // Enciende nuestro botón verde pequeño en la barra superior
     document.getElementById('btnInstalar').style.display = 'block';
 });
 
 function instalarApp() {
     if (eventoInstalacion) {
-        // Lanza la ventana emergente nativa del sistema
         eventoInstalacion.prompt();
-        // Espera a ver qué decide el usuario
         eventoInstalacion.userChoice.then((resultado) => {
             if (resultado.outcome === 'accepted') {
                 console.log('El usuario aceptó instalar la App');
-                document.getElementById('btnInstalar').style.display = 'none'; // Escondemos el botón
+                document.getElementById('btnInstalar').style.display = 'none'; 
             }
             eventoInstalacion = null;
         });
