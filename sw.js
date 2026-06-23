@@ -1,6 +1,7 @@
-const CACHE_NAME = "cfe-tacuba-v1";
+// ¡IMPORTANTE! Cada vez que modifiques tu index.html, 
+// debes cambiar este nombre (ej. v2 a v3, v3 a v4, etc.)
+const CACHE_NAME = "cfe-tacuba-v2";
 
-// Aquí le decimos qué archivos debe descargar y guardar en el celular
 const archivosParaCache = [
     "./",
     "./index.html",
@@ -9,7 +10,7 @@ const archivosParaCache = [
     "./icono-512.png"
 ];
 
-// Al instalarse, el motor guarda los archivos en la memoria del teléfono
+// Instala la nueva versión
 self.addEventListener('install', (e) => {
     console.log('[Service Worker] Instalado y guardando caché ⚡');
     e.waitUntil(
@@ -17,10 +18,29 @@ self.addEventListener('install', (e) => {
             return cache.addAll(archivosParaCache);
         })
     );
-    self.skipWaiting();
+    self.skipWaiting(); // Fuerza al SW a no esperar y actualizarse
 });
 
-// Cuando la app pide un archivo, primero lo busca en el celular (offline) y si no, usa internet
+// NUEVO: Borra el caché viejo cuando cambia la versión
+self.addEventListener('activate', (e) => {
+    console.log('[Service Worker] Activado, limpiando caché viejo 🧹');
+    e.waitUntil(
+        caches.keys().then((nombresDeCache) => {
+            return Promise.all(
+                nombresDeCache.map((nombre) => {
+                    // Si el nombre del caché no es el actual, lo borra
+                    if (nombre !== CACHE_NAME) {
+                        console.log('[Service Worker] Borrando caché antiguo:', nombre);
+                        return caches.delete(nombre);
+                    }
+                })
+            );
+        })
+    );
+    return self.clients.claim(); // Toma el control inmediato de la app
+});
+
+// Responde a las peticiones usando el caché o buscando en la red
 self.addEventListener('fetch', (e) => {
     e.respondWith(
         caches.match(e.request).then((response) => {
