@@ -60,14 +60,7 @@
         .btn-nav { background: var(--primary); color: white; border: none; width: 35px; height: 35px; border-radius: 50%; font-size: 16px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
         .btn-nav:active { transform: scale(0.95); }
 
-        /* NUEVO: ESTILOS DE LA PANTALLA DE LOGIN */
-        #pantallaLogin { height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center; background: var(--primary); color: white; }
-        #inputPin { padding: 12px; font-size: 18px; text-align: center; width: 220px; border-radius: 8px; border: none; margin-bottom: 15px; font-weight: bold; }
-        #btnEntrar { padding: 12px 30px; font-size: 16px; background: #2e7d32; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; width: 220px; }
-        #errorPin { color: #ffab91; font-weight: bold; margin-top: 15px; display: none; }
-
-        /* Mantenemos oculta la app hasta validar PIN */
-        #bloqueoSeguridad { display: none; } 
+        #bloqueoSeguridad { display: none; }
         #vistaDetalle, #vistaAuditoria { display: none; }
         
         #ticketExportar { background: white; padding: 15px; border-radius: 8px; }
@@ -84,15 +77,6 @@
     </style>
 </head>
 <body>
-
-<div id="pantallaLogin">
-    <h1 style="margin: 0 0 5px 0;">⚡ CFE Tacuba</h1>
-    <p style="margin: 0 0 20px 0; color: #bbdefb;">Sistema de Control Operativo</p>
-    <input type="password" id="inputPin" placeholder="PIN de Acceso">
-    <button id="btnEntrar" onclick="verificarPin()">Ingresar</button>
-    <p id="errorPin">🚨 PIN Incorrecto</p>
-</div>
-
 <div id="bloqueoSeguridad">
     <header class="topbar">
         <div style="font-weight:bold; font-size: 16px;">⚡ CFE Tacuba Operaciones</div>
@@ -229,6 +213,16 @@
 
 <script>
 // ==========================================
+// SEGURIDAD ANTI-PANTALLA EN BLANCO
+// ==========================================
+window.onerror = function(msg, url, lineNo, columnNo, error) {
+    alert("🚨 Error detectado que bloqueaba la app:\n\n" + msg + "\n\nLínea: " + lineNo);
+    // Si falla algo, forzamos mostrar la app de todos modos para que no se quede en blanco
+    document.getElementById("bloqueoSeguridad").style.display = "block";
+    return false;
+};
+
+// ==========================================
 // MATRIZ Y CONFIGURACIÓN BASE
 // ==========================================
 const CLAVE_ACCESO_GENERAL = "cfe2026"; 
@@ -281,7 +275,7 @@ const FERIADOS_LEY = {
     2027: ["2027-01-01", "2027-02-01", "2027-03-15", "2027-05-01", "2027-09-16", "2027-11-15", "2027-12-25"]
 };
 
-// Calculadora de catorcenas
+// NUEVO: Calculadora de catorcenas
 const FECHA_BASE_PAGO = new Date(2026, 5, 26); 
 
 function esDiaDePago(fecha) {
@@ -304,35 +298,38 @@ let ordenAuditoria = { columna: 'premiumTotales', asc: false };
 let fechasContractuales = [];
 
 // ==========================================
-// NUEVO SISTEMA DE ACCESO (BYPASS SAFARI)
+// CONTROL DE ACCESO (AHORA MÁS SEGURO)
 // ==========================================
 function validarAccesoInicial() {
-    let token = localStorage.getItem("tokenAccesoCfe");
-    if (token === CLAVE_ACCESO_GENERAL) {
-        mostrarAplicacion();
-    } else {
-        // La pantalla de Login ya está visible por defecto, no hacemos nada
+    try {
+        let token = localStorage.getItem("tokenAccesoCfe");
+        if (token === CLAVE_ACCESO_GENERAL) {
+            document.getElementById("bloqueoSeguridad").style.display = "block";
+            inicializarEstructuraBase();
+        } else {
+            let login = prompt("Ingrese PIN:");
+            if (login === CLAVE_ACCESO_GENERAL) {
+                localStorage.setItem("tokenAccesoCfe", CLAVE_ACCESO_GENERAL);
+                document.getElementById("bloqueoSeguridad").style.display = "block";
+                inicializarEstructuraBase();
+            } else {
+                alert("Acceso Denegado");
+                document.getElementById("bloqueoSeguridad").style.display = "block"; // Quitar si prefieres que se quede oculto al fallar
+            }
+        }
+    } catch (e) {
+        // Esto captura el error si el navegador bloqueó el LocalStorage
+        alert("Aviso: Tu navegador bloqueó la memoria local. Debes ingresar el PIN en cada sesión.");
+        let login = prompt("Ingrese PIN:");
+        if (login === CLAVE_ACCESO_GENERAL) {
+            document.getElementById("bloqueoSeguridad").style.display = "block";
+            inicializarEstructuraBase();
+        }
     }
-}
-
-function verificarPin() {
-    let input = document.getElementById("inputPin").value;
-    if (input === CLAVE_ACCESO_GENERAL) {
-        localStorage.setItem("tokenAccesoCfe", CLAVE_ACCESO_GENERAL);
-        mostrarAplicacion();
-    } else {
-        document.getElementById("errorPin").style.display = "block";
-    }
-}
-
-function mostrarAplicacion() {
-    document.getElementById("pantallaLogin").style.display = "none";
-    document.getElementById("bloqueoSeguridad").style.display = "block";
-    inicializarEstructuraBase();
 }
 
 function cerrarSesionApp() { 
-    localStorage.removeItem("tokenAccesoCfe"); 
+    try { localStorage.removeItem("tokenAccesoCfe"); } catch(e) {}
     window.location.reload(); 
 }
 
@@ -543,7 +540,6 @@ async function compartirImagen() {
 // MÓDULO NUEVO: BÓVEDA GERENCIAL Y AUDITORÍA
 // ==========================================
 function abrirAuditoria() {
-    // Para el botón interno, como el usuario ya está interactuando, el prompt no se bloquea tan fácil.
     const pin = prompt("Ingrese PIN de Administrador:");
     if(pin !== CLAVE_BALANCE_GERENCIAL) { alert("PIN Incorrecto"); return; }
     document.getElementById("vistaInicio").style.display = "none"; document.getElementById("vistaDetalle").style.display = "none"; document.getElementById("vistaAuditoria").style.display = "block";
@@ -712,32 +708,16 @@ function exportarCSV() {
     const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `Balance_CFE_${anioAudit}.csv`; link.click();
 }
 
-// INICIALIZACIÓN
+// Inicialización de la App
 document.addEventListener("DOMContentLoaded", () => { 
-    // Si presiona "Enter" en el teclado también inicia sesión
-    document.getElementById("inputPin").addEventListener("keypress", function(event) {
-        if (event.key === "Enter") verificarPin();
-    });
     validarAccesoInicial(); 
 });
 
 // ==========================================
-// REGISTRO DEL SERVICE WORKER (EL MOTOR PWA)
+// CAPTURADOR DE INSTALACIÓN (PWA)
 // ==========================================
-if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js')
-            .then((registration) => {
-                console.log('El Service Worker se registró exitosamente: ', registration.scope);
-            })
-            .catch((error) => {
-                console.log('El registro del Service Worker falló: ', error);
-            });
-    });
-}
-
-// CAPTURADOR DE INSTALACIÓN
 let eventoInstalacion;
+
 window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     eventoInstalacion = e;
@@ -749,7 +729,7 @@ function instalarApp() {
         eventoInstalacion.prompt();
         eventoInstalacion.userChoice.then((resultado) => {
             if (resultado.outcome === 'accepted') {
-                console.log('App instalada');
+                console.log('El usuario aceptó instalar la App');
                 document.getElementById('btnInstalar').style.display = 'none'; 
             }
             eventoInstalacion = null;
