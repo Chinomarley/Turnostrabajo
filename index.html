@@ -60,7 +60,14 @@
         .btn-nav { background: var(--primary); color: white; border: none; width: 35px; height: 35px; border-radius: 50%; font-size: 16px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
         .btn-nav:active { transform: scale(0.95); }
 
-        #bloqueoSeguridad { display: none; }
+        /* NUEVO: ESTILOS DE LA PANTALLA DE LOGIN */
+        #pantallaLogin { height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center; background: var(--primary); color: white; }
+        #inputPin { padding: 12px; font-size: 18px; text-align: center; width: 220px; border-radius: 8px; border: none; margin-bottom: 15px; font-weight: bold; }
+        #btnEntrar { padding: 12px 30px; font-size: 16px; background: #2e7d32; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; width: 220px; }
+        #errorPin { color: #ffab91; font-weight: bold; margin-top: 15px; display: none; }
+
+        /* Mantenemos oculta la app hasta validar PIN */
+        #bloqueoSeguridad { display: none; } 
         #vistaDetalle, #vistaAuditoria { display: none; }
         
         #ticketExportar { background: white; padding: 15px; border-radius: 8px; }
@@ -77,6 +84,15 @@
     </style>
 </head>
 <body>
+
+<div id="pantallaLogin">
+    <h1 style="margin: 0 0 5px 0;">⚡ CFE Tacuba</h1>
+    <p style="margin: 0 0 20px 0; color: #bbdefb;">Sistema de Control Operativo</p>
+    <input type="password" id="inputPin" placeholder="PIN de Acceso">
+    <button id="btnEntrar" onclick="verificarPin()">Ingresar</button>
+    <p id="errorPin">🚨 PIN Incorrecto</p>
+</div>
+
 <div id="bloqueoSeguridad">
     <header class="topbar">
         <div style="font-weight:bold; font-size: 16px;">⚡ CFE Tacuba Operaciones</div>
@@ -95,10 +111,19 @@
 
             <div class="card">
                 <div class="filtros-grid">
-                    <div><span class="etiqueta">Zona</span><select id="filtroArea" onchange="actualizarFiltros()"></select></div>
-                    <div><span class="etiqueta">Cuadrilla</span><select id="filtroRol" onchange="render()"><option value="">TODAS</option></select></div>
-                    <div><span class="etiqueta">A Partir Del:</span><input type="date" id="inputFecha" onchange="cambiarFechaBase()"></div>
-                </div>
+    <div><span class="etiqueta">Zona</span><select id="filtroArea" onchange="actualizarFiltros()"></select></div>
+    <div><span class="etiqueta">Cuadrilla</span><select id="filtroRol" onchange="render()"><option value="">TODAS</option></select></div>
+    <div><span class="etiqueta">Turno</span>
+        <select id="filtroTurno" onchange="render()">
+            <option value="">TODOS</option>
+            <option value="M">☀️ Mañana</option>
+            <option value="V">🌇 Tarde</option>
+            <option value="N">🌙 Noche</option>
+            <option value="D">🏠 Descanso</option>
+        </select>
+    </div>
+    <div><span class="etiqueta">A Partir Del:</span><input type="date" id="inputFecha" onchange="cambiarFechaBase()"></div>
+</div>
                 <button class="btn-accion" style="width: 100%; background: #e0e0e0; color: #333; margin-top: 5px;" onclick="irAHoy()">📍 Regresar a Hoy</button>
             </div>
 
@@ -213,19 +238,9 @@
 
 <script>
 // ==========================================
-// SEGURIDAD ANTI-PANTALLA EN BLANCO
-// ==========================================
-window.onerror = function(msg, url, lineNo, columnNo, error) {
-    alert("🚨 Error detectado que bloqueaba la app:\n\n" + msg + "\n\nLínea: " + lineNo);
-    // Si falla algo, forzamos mostrar la app de todos modos para que no se quede en blanco
-    document.getElementById("bloqueoSeguridad").style.display = "block";
-    return false;
-};
-
-// ==========================================
 // MATRIZ Y CONFIGURACIÓN BASE
 // ==========================================
-const CLAVE_ACCESO_GENERAL = "cfe257"; 
+const CLAVE_ACCESO_GENERAL = "cfe2026"; 
 const CLAVE_BALANCE_GERENCIAL = "cfeTacuba"; 
 
 const MATRIZ = [
@@ -256,7 +271,7 @@ const CONFIG = {
         {id:65, a:"AZCAPOTZALCO", nom:"RODOLFO RODRIGUEZ", ayu:"CUBILLOS", idx: 4}, 
         {id:74, a:"INSURGENTES", nom:"JHONATHAN ROMERO", ayu:"RICARDO", idx: 5},
         {id:75, a:"INSURGENTES", nom:"CRYSTIAN LOPEZ", ayu:"JOSHUA", idx: 6}, 
-        {id:84, a:"TLATELOLCO", nom:"ISMAEL AVENDAÑO", ayu:"PARRA ARTURO", idx: 7},
+        {id:84, a:"TLATELOLCO", nom:"ISMAEL AVENDAÑO", ayu:"LUIS ARTURO PARRA", idx: 7},
         {id:55, a:"ARAGON", nom:"EDGAR LOPEZ RIVERA", ayu:"MARCOS", idx: 8}, 
         {id:52, a:"ARAGON", nom:"ANTONIO ROBLEDO", ayu:"CIRILO", idx: 9},
         {id:53, a:"ARAGON", nom:"RAYMUNDO ORDOÑEZ", ayu:"MARIO", idx: 10}, 
@@ -275,7 +290,7 @@ const FERIADOS_LEY = {
     2027: ["2027-01-01", "2027-02-01", "2027-03-15", "2027-05-01", "2027-09-16", "2027-11-15", "2027-12-25"]
 };
 
-// NUEVO: Calculadora de catorcenas
+// Calculadora de catorcenas
 const FECHA_BASE_PAGO = new Date(2026, 5, 26); 
 
 function esDiaDePago(fecha) {
@@ -298,38 +313,35 @@ let ordenAuditoria = { columna: 'premiumTotales', asc: false };
 let fechasContractuales = [];
 
 // ==========================================
-// CONTROL DE ACCESO (AHORA MÁS SEGURO)
+// NUEVO SISTEMA DE ACCESO (BYPASS SAFARI)
 // ==========================================
 function validarAccesoInicial() {
-    try {
-        let token = localStorage.getItem("tokenAccesoCfe");
-        if (token === CLAVE_ACCESO_GENERAL) {
-            document.getElementById("bloqueoSeguridad").style.display = "block";
-            inicializarEstructuraBase();
-        } else {
-            let login = prompt("Ingrese PIN:");
-            if (login === CLAVE_ACCESO_GENERAL) {
-                localStorage.setItem("tokenAccesoCfe", CLAVE_ACCESO_GENERAL);
-                document.getElementById("bloqueoSeguridad").style.display = "block";
-                inicializarEstructuraBase();
-            } else {
-                alert("Acceso Denegado");
-                document.getElementById("bloqueoSeguridad").style.display = "block"; // Quitar si prefieres que se quede oculto al fallar
-            }
-        }
-    } catch (e) {
-        // Esto captura el error si el navegador bloqueó el LocalStorage
-        alert("Aviso: Tu navegador bloqueó la memoria local. Debes ingresar el PIN en cada sesión.");
-        let login = prompt("Ingrese PIN:");
-        if (login === CLAVE_ACCESO_GENERAL) {
-            document.getElementById("bloqueoSeguridad").style.display = "block";
-            inicializarEstructuraBase();
-        }
+    let token = localStorage.getItem("tokenAccesoCfe");
+    if (token === CLAVE_ACCESO_GENERAL) {
+        mostrarAplicacion();
+    } else {
+        // La pantalla de Login ya está visible por defecto, no hacemos nada
     }
 }
 
+function verificarPin() {
+    let input = document.getElementById("inputPin").value;
+    if (input === CLAVE_ACCESO_GENERAL) {
+        localStorage.setItem("tokenAccesoCfe", CLAVE_ACCESO_GENERAL);
+        mostrarAplicacion();
+    } else {
+        document.getElementById("errorPin").style.display = "block";
+    }
+}
+
+function mostrarAplicacion() {
+    document.getElementById("pantallaLogin").style.display = "none";
+    document.getElementById("bloqueoSeguridad").style.display = "block";
+    inicializarEstructuraBase();
+}
+
 function cerrarSesionApp() { 
-    try { localStorage.removeItem("tokenAccesoCfe"); } catch(e) {}
+    localStorage.removeItem("tokenAccesoCfe"); 
     window.location.reload(); 
 }
 
@@ -368,7 +380,9 @@ function actualizarFiltros() { const zona = document.getElementById("filtroArea"
 function render() {
     const area = document.getElementById("filtroArea").value;
     const rolFiltro = document.getElementById("filtroRol").value;
+    const turnoFiltro = document.getElementById("filtroTurno").value; // NUEVO FILTRO DE TURNO
     let fechas = [];
+
     for(let i=0; i<diasAMostrar; i++) { let f = new Date(fechaInicioVista); f.setDate(fechaInicioVista.getDate() + i); fechas.push(f); }
     document.getElementById("lblDiaSeleccionado").innerText = `${dSem[fechaClick.getDay()]} ${fechaClick.getDate()} de ${nMeses[fechaClick.getMonth()]}`;
 
@@ -379,7 +393,7 @@ function render() {
         
         let esFeriado = FERIADOS_LEY[f.getFullYear()] && FERIADOS_LEY[f.getFullYear()].includes(iso);
         let indicadorFeriado = esFeriado ? ' <span style="color:#d32f2f;" title="Feriado Oficial">🔥</span>' : '';
-        let indicadorPago = esDiaDePago(f) ? ' <span style="color:#2e7d32;" title="Día de Pago">💰</span>' : '';
+        let indicadorPago = esDiaDePago(f) ? ' <span style="color:#2e7d32;" title="Día de Pago">💰💵</span>' : '';
         
         let estiloFeriado = esFeriado && !act ? 'background: #ffebee;' : ''; 
         let estiloPago = esDiaDePago(f) && !act && !esFeriado ? 'background: #e8f5e9;' : ''; 
@@ -393,7 +407,14 @@ function render() {
     document.getElementById("cabeceraTabla").innerHTML = h;
 
     let b = "", cto = {M:0, V:0, N:0, D:0};
-    CONFIG.roles.filter(r => (!area || r.a === area) && (!rolFiltro || r.id == rolFiltro)).forEach(r => {
+        CONFIG.roles.filter(r => {
+        let pasaArea = !area || r.a === area;
+        let pasaRol = !rolFiltro || r.id == rolFiltro;
+        // Revisa qué turno tiene la cuadrilla en el día que tienes seleccionado (fechaClick)
+        let pasaTurno = !turnoFiltro || getTurnoReal(r.id, fechaClick) === turnoFiltro;
+        return pasaArea && pasaRol && pasaTurno;
+    }).forEach(r => {
+
         
         let colorAyudante = (r.ayu === "SIN ASIGNAR") ? "color:#c62828; font-style:italic;" : "color:#0288d1;";
         let fila = `<tr>
@@ -505,7 +526,7 @@ function pintarDetalle(modo) {
             let iso = f.getFullYear() + "-" + String(f.getMonth()+1).padStart(2, '0') + "-" + String(f.getDate()).padStart(2, '0');
             let esFeriado = FERIADOS_LEY[f.getFullYear()] && FERIADOS_LEY[f.getFullYear()].includes(iso);
             let iconFeriado = esFeriado ? '🔥' : '';
-            let iconPago = esDiaDePago(f) ? '💰💵' : '';
+            let iconPago = esDiaDePago(f) ? '💰' : '';
             
             let estiloHeader = f.getDay() === 0 ? 'color:#d32f2f;' : '';
             if (esFeriado) estiloHeader += ' background:#ffebee;';
@@ -540,6 +561,7 @@ async function compartirImagen() {
 // MÓDULO NUEVO: BÓVEDA GERENCIAL Y AUDITORÍA
 // ==========================================
 function abrirAuditoria() {
+    // Para el botón interno, como el usuario ya está interactuando, el prompt no se bloquea tan fácil.
     const pin = prompt("Ingrese PIN de Administrador:");
     if(pin !== CLAVE_BALANCE_GERENCIAL) { alert("PIN Incorrecto"); return; }
     document.getElementById("vistaInicio").style.display = "none"; document.getElementById("vistaDetalle").style.display = "none"; document.getElementById("vistaAuditoria").style.display = "block";
@@ -708,16 +730,32 @@ function exportarCSV() {
     const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `Balance_CFE_${anioAudit}.csv`; link.click();
 }
 
-// Inicialización de la App
+// INICIALIZACIÓN
 document.addEventListener("DOMContentLoaded", () => { 
+    // Si presiona "Enter" en el teclado también inicia sesión
+    document.getElementById("inputPin").addEventListener("keypress", function(event) {
+        if (event.key === "Enter") verificarPin();
+    });
     validarAccesoInicial(); 
 });
 
 // ==========================================
-// CAPTURADOR DE INSTALACIÓN (PWA)
+// REGISTRO DEL SERVICE WORKER (EL MOTOR PWA)
 // ==========================================
-let eventoInstalacion;
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+            .then((registration) => {
+                console.log('El Service Worker se registró exitosamente: ', registration.scope);
+            })
+            .catch((error) => {
+                console.log('El registro del Service Worker falló: ', error);
+            });
+    });
+}
 
+// CAPTURADOR DE INSTALACIÓN
+let eventoInstalacion;
 window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     eventoInstalacion = e;
@@ -729,7 +767,7 @@ function instalarApp() {
         eventoInstalacion.prompt();
         eventoInstalacion.userChoice.then((resultado) => {
             if (resultado.outcome === 'accepted') {
-                console.log('El usuario aceptó instalar la App');
+                console.log('App instalada');
                 document.getElementById('btnInstalar').style.display = 'none'; 
             }
             eventoInstalacion = null;
@@ -738,4 +776,4 @@ function instalarApp() {
 }
 </script>
 </body>
-</html> 
+</html>
