@@ -393,7 +393,7 @@ function render() {
         
         let esFeriado = FERIADOS_LEY[f.getFullYear()] && FERIADOS_LEY[f.getFullYear()].includes(iso);
         let indicadorFeriado = esFeriado ? ' <span style="color:#d32f2f;" title="Feriado Oficial">🔥</span>' : '';
-        let indicadorPago = esDiaDePago(f) ? ' <span style="color:#2e7d32;" title="Día de Pago">💰💵</span>' : '';
+        let indicadorPago = esDiaDePago(f) ? ' <span style="color:#2e7d32;" title="Día de Pago">💵</span>' : '';
         
         let estiloFeriado = esFeriado && !act ? 'background: #ffebee;' : ''; 
         let estiloPago = esDiaDePago(f) && !act && !esFeriado ? 'background: #e8f5e9;' : ''; 
